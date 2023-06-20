@@ -7,12 +7,21 @@ project(CrowEngine)
 # Manually specifying all the header files.
 #
 set(HEADER_FILES
+	src/vk_engine.hpp
+	src/vk_initializers.hpp
+	src/vk_types.hpp
+	src/utilities.hpp
+	src/buffer.hpp
 )
 
 #
 # Manually specifying all the source files.
 #
 set(SOURCE_FILES
+	src/vk_engine.cpp
+	src/vk_initializers.cpp
+	src/utilities.cpp
+	src/buffer.cpp
 )
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
