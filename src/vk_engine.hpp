@@ -1,145 +1,60 @@
 #pragma once
-#include "vk_types.hpp"
-#include "swapchain.hpp"
 
-const uint32_t WIDTH = 1700;
-const uint32_t HEIGHT = 600;
+#include "vk_types.hpp"
+#include <vector>
 
 class VulkanEngine {
 public:
-    void run();
-    bool framebufferResized = false;
-private:
-    GLFWwindow* window;
+	bool _isInitialized{ false };
+	int _frameNumber{ 0 };
+	
+	VkExtent2D _windowExtent{ 1700, 900 };
 
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
-    VkSurfaceKHR surface;
+	GLFWwindow* _window;
 
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkDevice device;
+	VkInstance _instance;
+	VkDebugUtilsMessengerEXT _debug_messenger;
+	VkPhysicalDevice _chosenGPU;
+	VkDevice _device;
+	VkSurfaceKHR _surface;
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+	VkSwapchainKHR _swapchain;
+	VkFormat _swapchainImageFormat;
 
-    VkRenderPass renderPass;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+	std::vector<VkImage> _swapchainImages;
+	
+	std::vector<VkImageView> _swapchainImageViews;
 
-    VkCommandPool commandPool;
+	VkQueue _graphicsQueue;
+	uint32_t _graphicsQueueFamily;
 
-    CrowEngine::SwapChain::SwapChain swapChain;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
 
-    uint32_t mipLevels;
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+	VkRenderPass _renderPass;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+	std::vector<VkFramebuffer> _frameBuffers;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void*> uniformBuffersMapped;
-
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
-
-    std::vector<VkCommandBuffer> commandBuffers;
-
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    uint32_t currentFrame = 0;
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
 
 	void init();
-	
+
 	void cleanup();
 
 	void draw();
 
-    void mainLoop();
+	void run();
+private:
+	void init_vulkan();
 
-    void initWindow();
+	void init_swapchain();
 
-    void createInstance();
+	void init_commands();
 
-    void setupDebugMessenger();
+	void init_default_renderpass();
 
-    void createSurface();
+	void init_framebuffers();
 
-    void pickPhysicalDevice();
-
-    void createLogicalDevice();
-
-    void createRenderPass();
-
-    void createDescriptorSetLayout();
-
-    void createGraphicsPipeline();
-
-    void createCommandPool();
-
-    void hasStencilComponent(VkFormat format);
-
-    void createTextureImage();
-
-    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
-    VkSampleCountFlagBits getMaxUsableSampleCount;
-
-    void createTextureImageView();
-
-    void createTextureSampler();
-
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-    void loadModel();
-
-    void createVertexBuffer();
-
-    void createIndexBuffer();
-
-    void createUniformBuffers();
-
-    void createDescriptorPool();
-
-    void createDescriptorSets();
-
-    VkCommandBuffer beginSingleTimeCommands();
-
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-
-    void createCommandBuffers();
-
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-    void createSyncObject();
-
-    void updateUniformBuffer(uint32_t currentImage);
-
-    VkShaderModule createShaderModule(const std::vector<char>& code);
-
-    bool isDeviceSuitable(VkPhysicalDevice device);
-
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
-    std::vector<const char*> getRequiredExtensions();
-
-    bool checkValidationLayerSupport();
-
-    static std::vector<char> readFile(const std::string& filename);
-
-    void createSyncObjects();
+	void init_sync_structures();
 };
