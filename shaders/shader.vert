@@ -1,20 +1,15 @@
+//we will be using glsl version 4.5 syntax
 #version 450
 
-layout(binding = 0) uniform UniformBufferObject {
-    mat4 model;
-    mat4 view;
-    mat4 proj;
-} ubo;
+void main()
+{
+	//const array of positions for the triangle
+	const vec3 positions[3] = vec3[3](
+		vec3(1.f,1.f, 0.0f),
+		vec3(-1.f,1.f, 0.0f),
+		vec3(0.f,-1.f, 0.0f)
+	);
 
-layout(location = 0) in vec3 inPosition;
-layout(location = 1) in vec3 inColor;
-layout(location = 2) in vec2 inTexCoord;
-
-layout(location = 0) out vec3 fragColor;
-layout(location = 1) out vec2 fragTexCoord;
-
-void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
-    fragColor = inColor;
-    fragTexCoord = inTexCoord;
+	//output the position of each vertex
+	gl_Position = vec4(positions[gl_VertexIndex], 1.0f);
 }

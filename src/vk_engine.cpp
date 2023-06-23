@@ -8,6 +8,8 @@
 #include "VkBootstrap.h"
 
 #include <iostream>
+#include <fstream>
+
 #define VK_CHECK(x)                                                 \
 	do                                                              \
 	{                                                               \
@@ -39,6 +41,8 @@ void VulkanEngine::init()
     init_framebuffers();
 
     init_sync_structures();
+
+    init_pipelines();
 
     _isInitialized = true;
 }
@@ -325,4 +329,56 @@ void VulkanEngine::init_sync_structures()
 
     VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_presentSemaphore));
     VK_CHECK(vkCreateSemaphore(_device, &semaphoreCreateInfo, nullptr, &_renderSemaphore));
+}
+
+bool VulkanEngine::load_shader_module(const char* filePath, VkShaderModule* outShaderModule) {
+    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        return false;
+    }
+
+    size_t fileSize = (size_t)file.tellg();
+
+    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+    file.seekg(0);
+
+    file.read((char*)buffer.data(), fileSize);
+
+    file.close();
+
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.pNext = nullptr;
+
+    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+    createInfo.pCode = buffer.data();
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(_device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        return false;
+    }
+
+    *outShaderModule = shaderModule;
+    return true;
+}
+
+void VulkanEngine::init_pipelines()
+{
+    VkShaderModule triangleFragShader;
+    if (!load_shader_module("shaders/frag.spv", &triangleFragShader)) {
+        std::cerr << "init_pipelines: Error while building the triangle fragment shader module" << std::endl;
+    }
+    else {
+        std::cout << "init_pipelines: Loaded triangle fragment shader" << std::endl;
+    }
+
+    VkShaderModule triangleVertexShader;
+    if (!load_shader_module("shaders/vert.spv", &triangleVertexShader)) {
+        std::cerr << "init_pipelines: Error while building the triangle fragment shader module" << std::endl;
+    }
+    else {
+        std::cout << "init_pipelines: Loaded triangle vertex shader" << std::endl;
+    }
 }
