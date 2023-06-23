@@ -1,7 +1,47 @@
 #include "vk_engine.hpp"
 #include "utilities.hpp"
 
+static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+    auto app = reinterpret_cast<VulkanEngine*>(glfwGetWindowUserPointer(window));
+    app->framebufferResized = true;
+}
+
 void VulkanEngine::init() {
+    // Init window
+    glfwInit();
+
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
+    window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+    // Init Vulkan
+    createInstance();
+    setupDebugMessenger();
+    createSurface();
+    pickPhysicalDevice();
+    createLogicalDevice();
+    swapChain.createSwapChain(physicalDevice, surface, device);
+    swapChain.createImageViews(device);
+    createRenderPass();
+    createDescriptorSetLayout();
+    createGraphicsPipeline();
+    createCommandPool();
+    swapChain.createColorResources(device, physicalDevice);
+    swapChain.createDepthResources(device, physicalDevice);
+    swapChain.createFramebuffers(renderPass, device);
+    createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
+    loadModel();
+    createVertexBuffer();
+    createIndexBuffer();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+    createCommandBuffers();
+    createSyncObjects();
 }
 
 void VulkanEngine::cleanup() {
@@ -25,36 +65,6 @@ void VulkanEngine::run() {
     init();
     mainLoop();
     cleanup();
-}
-
-void VulkanEngine::initWindow() {
-    glfwInit();
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
-    window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-    glfwSetWindowUserPointer(window, this);
-    glfwSetFramebufferSizeCallback(window, CrowEngine::framebufferResizeCallback);
-}
-
-void VulkanEngine::cleanupSwapChain() {
-    vkDestroyImageView(device, depthImageView, nullptr);
-    vkDestroyImage(device, depthImage, nullptr);
-    vkFreeMemory(device, depthImageMemory, nullptr);
-
-    vkDestroyImageView(device, colorImageView, nullptr);
-    vkDestroyImage(device, colorImage, nullptr);
-    vkFreeMemory(device, colorImageMemory, nullptr);
-
-    for (auto framebuffer : swapChainFramebuffers) {
-        vkDestroyFramebuffer(device, framebuffer, nullptr);
-    }
-
-    for (auto imageView : swapChainImageViews) {
-        vkDestroyImageView(device, imageView, nullptr);
-    }
-
-    vkDestroySwapchainKHR(device, swapChain, nullptr);
 }
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger) {

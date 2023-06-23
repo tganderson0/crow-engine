@@ -12,6 +12,8 @@ set(HEADER_FILES
 	src/vk_types.hpp
 	src/utilities.hpp
 	src/buffer.hpp
+	src/swapchain.hpp
+	src/model.hpp
 )
 
 #
@@ -22,6 +24,8 @@ set(SOURCE_FILES
 	src/vk_initializers.cpp
 	src/utilities.cpp
 	src/buffer.cpp
+	src/swapchain.cpp
+	src/model.cpp
 )
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)

@@ -98,6 +98,14 @@ namespace std {
     };
 }
 
+namespace CrowEngine {
+    struct Image {
+        VkImageView imageView;
+        VkImage image;
+        VkDeviceMemory imageMemory;
+    };
+}
+
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
