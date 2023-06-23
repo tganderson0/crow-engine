@@ -20,11 +20,11 @@ set(SOURCE_FILES
 	src/vk_initializers.cpp
 )
 
-set(IMGUI_SOURCES
-	external/imgui/imgui.cpp
-	external/imgui/imgui_draw.cpp
-	external/imgui/imgui_widgets.cpp
-)
+# set(IMGUI_SOURCES
+# 	external/imgui/imgui.cpp
+# 	external/imgui/imgui_draw.cpp
+# 	external/imgui/imgui_widgets.cpp
+# )
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
@@ -36,8 +36,8 @@ add_subdirectory(external/vk-bootstrap)
 #
 # This is the main target
 #
-add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} ${IMGUI_SOURCES} src/main.cpp)
-target_include_directories(CrowEngine PRIVATE external/imgui)
+add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} src/main.cpp)
+# target_include_directories(CrowEngine PRIVATE external/imgui)
 
 #
 # We want the C++ 20 standard for our project
