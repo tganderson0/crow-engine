@@ -19,10 +19,12 @@ public:
 	VkSurfaceKHR _surface;
 
 	VkSwapchainKHR _swapchain;
-	VkFormat _swapchainImageFormat;
+	VkFormat _swapchainImageFormat; // Image format expected by the windowing system
 
+	// Array of images from the swapchain
 	std::vector<VkImage> _swapchainImages;
 	
+	// Array of image-views from the swapchain
 	std::vector<VkImageView> _swapchainImageViews;
 
 	VkQueue _graphicsQueue;
