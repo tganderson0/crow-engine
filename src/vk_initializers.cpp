@@ -1,4 +1,4 @@
-#include "vk_initializers.hpp"
+﻿#include "vk_initializers.hpp"
 
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags /*= 0*/)
 {

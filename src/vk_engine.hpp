@@ -2,6 +2,25 @@
 
 #include "vk_types.hpp"
 #include <vector>
+#include <functional>
+#include <deque>
+
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function) {
+		deletors.push_back(function);
+	}
+
+	void flush() {
+		for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+			(*it)();
+		}
+
+		deletors.clear();
+	}
+};
 
 class VulkanEngine {
 public:
@@ -41,6 +60,8 @@ public:
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
 	VkPipeline _redTrianglePipeline;
+
+	DeletionQueue _mainDeletionQueue;
 
 	int _selectedShader{ 0 };
 
@@ -83,3 +104,4 @@ public:
 
 	VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
+
