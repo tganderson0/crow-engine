@@ -8,10 +8,22 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <unordered_map>
+
+struct Material {
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
+};
 
 struct MeshPushConstants {
 	glm::vec4 data;
 	glm::mat4 render_matrix;
+};
+
+struct RenderObject {
+	Mesh* mesh;
+	Material* material;
+	glm::mat4 transformMatrix;
 };
 
 struct DeletionQueue
@@ -66,10 +78,6 @@ public:
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
-	VkPipelineLayout _trianglePipelineLayout;
-	VkPipeline _trianglePipeline;
-	VkPipeline _redTrianglePipeline;
-
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 
@@ -77,9 +85,15 @@ public:
 
 	VmaAllocator _allocator;
 
+	VkImageView _depthImageView;
+	AllocatedImage _depthImage;
+	VkFormat _depthFormat;
+
 	// Meshs /////////////
-	Mesh _triangleMesh;
-	Mesh _monkeyMesh;
+
+	std::vector<RenderObject> _renderables;
+	std::unordered_map<std::string, Material> _materials;
+	std::unordered_map<std::string, Mesh> _meshes;
 	//////////////////////
 
 	int _selectedShader{ 0 };
@@ -91,6 +105,13 @@ public:
 	void draw();
 
 	void run();
+
+	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+	Material* get_material(const std::string& name);
+	Mesh* get_mesh(const std::string& name);
+
+	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
 private:
 	void init_vulkan();
 
@@ -111,6 +132,8 @@ private:
 	void load_meshes();
 
 	void upload_mesh(Mesh& mesh);
+
+	void init_scene();
 };
 
 class PipelineBuilder {
@@ -124,6 +147,8 @@ public:
 	VkPipelineColorBlendAttachmentState _colorBlendAttachment;
 	VkPipelineMultisampleStateCreateInfo _multisampling;
 	VkPipelineLayout _pipelineLayout;
+
+	VkPipelineDepthStencilStateCreateInfo _depthStencil;
 
 	VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
