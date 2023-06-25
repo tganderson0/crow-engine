@@ -40,6 +40,9 @@ public:
 
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
+
+	int _selectedShader{ 0 };
 
 	void init();
 
