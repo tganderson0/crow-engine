@@ -5,6 +5,14 @@
 #include <vector>
 #include <functional>
 #include <deque>
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+struct MeshPushConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
 
 struct DeletionQueue
 {
@@ -61,6 +69,8 @@ public:
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
 	VkPipeline _redTrianglePipeline;
+
+	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
 
 	DeletionQueue _mainDeletionQueue;
