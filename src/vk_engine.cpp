@@ -134,9 +134,9 @@ void VulkanEngine::draw()
     vkCmdPushConstants(cmd, _meshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
 
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &_triangleMesh._vertexBuffer._buffer, &offset);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &_monkeyMesh._vertexBuffer._buffer, &offset);
 
-    vkCmdDraw(cmd, _triangleMesh._vertices.size(), 1, 0, 0);
+    vkCmdDraw(cmd, _monkeyMesh._vertices.size(), 1, 0, 0);
 
     ///////////////////////////////////////////////////////////
 
@@ -517,10 +517,10 @@ void VulkanEngine::init_pipelines()
 
     //connect the pipeline builder vertex input info to the one we get from Vertex
     pipelineBuilder._vertexInputInfo.pVertexAttributeDescriptions = vertexDescription.attributes.data();
-    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = vertexDescription.attributes.size();
+    pipelineBuilder._vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexDescription.attributes.size());
 
     pipelineBuilder._vertexInputInfo.pVertexBindingDescriptions = vertexDescription.bindings.data();
-    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = vertexDescription.bindings.size();
+    pipelineBuilder._vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexDescription.bindings.size());
 
     // Mesh Shader
     pipelineBuilder._shaderStages.clear();
@@ -642,7 +642,11 @@ void VulkanEngine::load_meshes()
     _triangleMesh._vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
     _triangleMesh._vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
 
+    // monkey mesh
+    _monkeyMesh.load_from_obj("models/monkey_smooth.obj");
+
     upload_mesh(_triangleMesh);
+    upload_mesh(_monkeyMesh);
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)

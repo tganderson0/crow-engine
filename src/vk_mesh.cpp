@@ -1,4 +1,7 @@
 #include "vk_mesh.hpp"
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+#include <iostream>
 
 VertexInputDescription Vertex::get_vertex_description()
 {
@@ -37,4 +40,71 @@ VertexInputDescription Vertex::get_vertex_description()
 	description.attributes.push_back(normalAttribute);
 	description.attributes.push_back(colorAttribute);
 	return description;
+}
+
+bool Mesh::load_from_obj(const char* filename)
+{
+	// attrib will contain the vertex arrays of the file
+	tinyobj::attrib_t attrib;
+	// shapes contain the info for each separate object in the file
+	std::vector<tinyobj::shape_t> shapes;
+	// materials contain the information about the material of each shape
+	std::vector<tinyobj::material_t> materials;
+
+	// error and warning output
+	std::string warn;
+	std::string err;
+
+	// load the OBJ file
+	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename,
+		nullptr);
+	if (!warn.empty()) {
+		std::cout << "WARN: load_from_obj: " << warn << std::endl;
+	}
+	// if there is any error, print it, and break mesh loading
+	if (!err.empty()) {
+		std::cerr << "load_from_obj: " << err << std::endl;
+		return false;
+	}
+
+	// loop over shapes
+	for (size_t s = 0; s < shapes.size(); s++) {
+		// loop over faces (polygons)
+		size_t index_offset = 0;
+		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+			// hardcode loading triangles
+			int fv = 3;
+
+			// Loop over vertices for face
+			for (size_t v = 0; v < fv; v++) {
+				tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+
+				// Vertex position
+				tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
+				tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
+				tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
+				// vertex normal
+				tinyobj::real_t nx = attrib.normals[3 * idx.vertex_index + 0];
+				tinyobj::real_t ny = attrib.normals[3 * idx.vertex_index + 1];
+				tinyobj::real_t nz = attrib.normals[3 * idx.vertex_index + 2];
+
+				Vertex new_vert;
+				new_vert.position.x = vx;
+				new_vert.position.y = vy;
+				new_vert.position.z = vz;
+
+				new_vert.normal.x = nx;
+				new_vert.normal.y = ny;
+				new_vert.normal.z = nz;
+
+				new_vert.color = new_vert.normal;
+
+				_vertices.push_back(new_vert);
+
+			}
+			index_offset += fv;
+		}
+	}
+
+	return true;
 }

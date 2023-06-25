@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_types.hpp"
+#include "tiny_obj_loader.h"
 #include <vector>
 #include <glm/vec3.hpp>
 
@@ -22,5 +23,7 @@ struct Vertex {
 struct Mesh {
 	std::vector<Vertex> _vertices;
 	AllocatedBuffer _vertexBuffer;
+
+	bool load_from_obj(const char* filename);
 };
 
