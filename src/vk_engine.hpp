@@ -1,6 +1,7 @@
 #pragma once
 
 #include "vk_types.hpp"
+#include "vk_mesh.hpp"
 #include <vector>
 #include <functional>
 #include <deque>
@@ -60,8 +61,13 @@ public:
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
 	VkPipeline _redTrianglePipeline;
+	VkPipeline _meshPipeline;
 
 	DeletionQueue _mainDeletionQueue;
+
+	VmaAllocator _allocator;
+
+	Mesh _triangleMesh;
 
 	int _selectedShader{ 0 };
 
@@ -88,6 +94,10 @@ private:
 	void init_pipelines();
 
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+
+	void load_meshes();
+
+	void upload_mesh(Mesh& mesh);
 };
 
 class PipelineBuilder {

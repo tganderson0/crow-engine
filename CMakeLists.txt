@@ -10,6 +10,7 @@ set(HEADER_FILES
 	src/vk_engine.hpp
 	src/vk_initializers.hpp
 	src/vk_types.hpp
+	src/vk_mesh.hpp
 )
 
 #
@@ -18,6 +19,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
 	src/vk_engine.cpp
 	src/vk_initializers.cpp
+	src/vk_mesh.cpp
 )
 
 # set(IMGUI_SOURCES
