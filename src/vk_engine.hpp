@@ -1,14 +1,17 @@
+﻿// vulkan_guide.h : Include file for standard system include files,
+// or project specific include files.
+
 #pragma once
 
 #include "vk_types.hpp"
-#include "vk_mesh.hpp"
 #include <vector>
 #include <functional>
 #include <deque>
-#define GLM_FORCE_RADIANS
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include "vk_mesh.hpp"
 #include <unordered_map>
+
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
 
 class PipelineBuilder {
 public:
@@ -53,8 +56,14 @@ struct MeshPushConstants {
 
 
 struct Material {
+	VkDescriptorSet textureSet{ VK_NULL_HANDLE };
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
+};
+
+struct Texture {
+	AllocatedImage image;
+	VkImageView imageView;
 };
 
 struct RenderObject {
@@ -63,6 +72,8 @@ struct RenderObject {
 	Material* material;
 
 	glm::mat4 transformMatrix;
+
+
 };
 
 
@@ -82,6 +93,11 @@ struct FrameData {
 	VkDescriptorSet objectDescriptor;
 };
 
+struct UploadContext {
+	VkFence _uploadFence;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _commandBuffer;
+};
 struct GPUCameraData {
 	glm::mat4 view;
 	glm::mat4 proj;
@@ -112,7 +128,7 @@ public:
 
 	VkExtent2D _windowExtent{ 1700 , 900 };
 
-	struct GLFWwindow* _window;
+	struct GLFWwindow* _window{ nullptr };
 
 	VkInstance _instance;
 	VkDebugUtilsMessengerEXT _debug_messenger;
@@ -151,10 +167,12 @@ public:
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
+	VkDescriptorSetLayout _singleTextureSetLayout;
 
 	GPUSceneData _sceneParameters;
 	AllocatedBuffer _sceneParameterBuffer;
 
+	UploadContext _uploadContext;
 	//initializes everything in the engine
 	void init();
 
@@ -175,6 +193,7 @@ public:
 
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
+	std::unordered_map<std::string, Texture> _loadedTextures;
 	//functions
 
 	//create material and add it to the map
@@ -192,6 +211,8 @@ public:
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
 	size_t pad_uniform_buffer_size(size_t originalSize);
+
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 private:
 
 	void init_vulkan();
@@ -217,6 +238,7 @@ private:
 
 	void load_meshes();
 
+	void load_images();
+
 	void upload_mesh(Mesh& mesh);
 };
-

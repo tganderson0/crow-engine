@@ -29,64 +29,83 @@ VertexInputDescription Vertex::get_vertex_description()
 	normalAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
 	normalAttribute.offset = offsetof(Vertex, normal);
 
-	//Color will be stored at Location 2
+	//Position will be stored at Location 2
 	VkVertexInputAttributeDescription colorAttribute = {};
 	colorAttribute.binding = 0;
 	colorAttribute.location = 2;
 	colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
 	colorAttribute.offset = offsetof(Vertex, color);
 
+	//UV will be stored at Location 2
+	VkVertexInputAttributeDescription uvAttribute = {};
+	uvAttribute.binding = 0;
+	uvAttribute.location = 3;
+	uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
+	uvAttribute.offset = offsetof(Vertex, uv);
+
+
 	description.attributes.push_back(positionAttribute);
 	description.attributes.push_back(normalAttribute);
 	description.attributes.push_back(colorAttribute);
+	description.attributes.push_back(uvAttribute);
 	return description;
 }
 
 bool Mesh::load_from_obj(const char* filename)
 {
-	// attrib will contain the vertex arrays of the file
+	//attrib will contain the vertex arrays of the file
 	tinyobj::attrib_t attrib;
-	// shapes contain the info for each separate object in the file
+	//shapes contains the info for each separate object in the file
 	std::vector<tinyobj::shape_t> shapes;
-	// materials contain the information about the material of each shape
+	//materials contains the information about the material of each shape, but we wont use it.
 	std::vector<tinyobj::material_t> materials;
 
-	// error and warning output
+	//error and warning output from the load function
 	std::string warn;
 	std::string err;
 
-	// load the OBJ file
-	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, "materials");
+	//load the OBJ file
+	tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename,
+		"materials");
+	//make sure to output the warnings to the console, in case there are issues with the file
 	if (!warn.empty()) {
-		std::cout << "WARN: load_from_obj: " << warn << std::endl;
+		std::cout << "WARN: " << warn << std::endl;
 	}
-	// if there is any error, print it, and break mesh loading
+	//if we have any error, print it to the console, and break the mesh loading. 
+	//This happens if the file cant be found or is malformed
 	if (!err.empty()) {
-		std::cerr << "load_from_obj: " << err << std::endl;
+		std::cerr << err << std::endl;
 		return false;
 	}
 
-	// loop over shapes
+	// Loop over shapes
 	for (size_t s = 0; s < shapes.size(); s++) {
-		// loop over faces (polygons)
+		// Loop over faces(polygon)
 		size_t index_offset = 0;
 		for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
-			// hardcode loading triangles
+
+			//hardcode loading to triangles
 			int fv = 3;
 
-			// Loop over vertices for face
+			// Loop over vertices in the face.
 			for (size_t v = 0; v < fv; v++) {
+				// access to vertex
 				tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
 
-				// Vertex position
+				//vertex position
 				tinyobj::real_t vx = attrib.vertices[3 * idx.vertex_index + 0];
 				tinyobj::real_t vy = attrib.vertices[3 * idx.vertex_index + 1];
 				tinyobj::real_t vz = attrib.vertices[3 * idx.vertex_index + 2];
-				// vertex normal
-				tinyobj::real_t nx = attrib.normals[3 * idx.vertex_index + 0];
-				tinyobj::real_t ny = attrib.normals[3 * idx.vertex_index + 1];
-				tinyobj::real_t nz = attrib.normals[3 * idx.vertex_index + 2];
+				//vertex normal
+				tinyobj::real_t nx = attrib.normals[3 * idx.normal_index + 0];
+				tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
+				tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
 
+				//vertex uv
+				tinyobj::real_t ux = attrib.texcoords[2 * idx.texcoord_index + 0];
+				tinyobj::real_t uy = attrib.texcoords[2 * idx.texcoord_index + 1];
+
+				//copy it into our vertex
 				Vertex new_vert;
 				new_vert.position.x = vx;
 				new_vert.position.y = vy;
@@ -96,10 +115,15 @@ bool Mesh::load_from_obj(const char* filename)
 				new_vert.normal.y = ny;
 				new_vert.normal.z = nz;
 
+
+				new_vert.uv.x = ux;
+				new_vert.uv.y = 1 - uy;
+
+				//we are setting the vertex color as the vertex normal. This is just for display purposes
 				new_vert.color = new_vert.normal;
 
-				_vertices.push_back(new_vert);
 
+				_vertices.push_back(new_vert);
 			}
 			index_offset += fv;
 		}

@@ -117,8 +117,8 @@ VkRenderPassBeginInfo vkinit::renderpass_begin_info(VkRenderPass renderPass, VkE
 	return info;
 }
 
-VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule) {
-
+VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shaderModule)
+{
 	VkPipelineShaderStageCreateInfo info{};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	info.pNext = nullptr;
@@ -131,7 +131,6 @@ VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShad
 	info.pName = "main";
 	return info;
 }
-
 VkPipelineVertexInputStateCreateInfo vkinit::vertex_input_state_create_info() {
 	VkPipelineVertexInputStateCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -153,7 +152,6 @@ VkPipelineInputAssemblyStateCreateInfo vkinit::input_assembly_create_info(VkPrim
 	info.primitiveRestartEnable = VK_FALSE;
 	return info;
 }
-
 VkPipelineRasterizationStateCreateInfo vkinit::rasterization_state_create_info(VkPolygonMode polygonMode)
 {
 	VkPipelineRasterizationStateCreateInfo info = {};
@@ -161,7 +159,7 @@ VkPipelineRasterizationStateCreateInfo vkinit::rasterization_state_create_info(V
 	info.pNext = nullptr;
 
 	info.depthClampEnable = VK_FALSE;
-	//discards all primitives before the rasterization stage if enabled which we don't want
+	//rasterizer discard allows objects with holes, default to no
 	info.rasterizerDiscardEnable = VK_FALSE;
 
 	info.polygonMode = polygonMode;
@@ -177,7 +175,6 @@ VkPipelineRasterizationStateCreateInfo vkinit::rasterization_state_create_info(V
 
 	return info;
 }
-
 VkPipelineMultisampleStateCreateInfo vkinit::multisampling_state_create_info()
 {
 	VkPipelineMultisampleStateCreateInfo info = {};
@@ -193,13 +190,25 @@ VkPipelineMultisampleStateCreateInfo vkinit::multisampling_state_create_info()
 	info.alphaToOneEnable = VK_FALSE;
 	return info;
 }
-
 VkPipelineColorBlendAttachmentState vkinit::color_blend_attachment_state() {
 	VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
 	return colorBlendAttachment;
+}
+VkPipelineLayoutCreateInfo vkinit::pipeline_layout_create_info() {
+	VkPipelineLayoutCreateInfo info{};
+	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	info.pNext = nullptr;
+
+	//empty defaults
+	info.flags = 0;
+	info.setLayoutCount = 0;
+	info.pSetLayouts = nullptr;
+	info.pushConstantRangeCount = 0;
+	info.pPushConstantRanges = nullptr;
+	return info;
 }
 
 VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
@@ -269,7 +278,6 @@ VkDescriptorSetLayoutBinding vkinit::descriptorset_layout_binding(VkDescriptorTy
 
 	return setbind;
 }
-
 VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding)
 {
 	VkWriteDescriptorSet write = {};
@@ -283,4 +291,34 @@ VkWriteDescriptorSet vkinit::write_descriptor_buffer(VkDescriptorType type, VkDe
 	write.pBufferInfo = bufferInfo;
 
 	return write;
+}
+
+VkWriteDescriptorSet vkinit::write_descriptor_image(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding)
+{
+	VkWriteDescriptorSet write = {};
+	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write.pNext = nullptr;
+
+	write.dstBinding = binding;
+	write.dstSet = dstSet;
+	write.descriptorCount = 1;
+	write.descriptorType = type;
+	write.pImageInfo = imageInfo;
+
+	return write;
+}
+
+VkSamplerCreateInfo vkinit::sampler_create_info(VkFilter filters, VkSamplerAddressMode samplerAdressMode /*= VK_SAMPLER_ADDRESS_MODE_REPEAT*/)
+{
+	VkSamplerCreateInfo info = {};
+	info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	info.pNext = nullptr;
+
+	info.magFilter = filters;
+	info.minFilter = filters;
+	info.addressModeU = samplerAdressMode;
+	info.addressModeV = samplerAdressMode;
+	info.addressModeW = samplerAdressMode;
+
+	return info;
 }
