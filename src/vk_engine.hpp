@@ -10,6 +10,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <unordered_map>
 
+struct FrameData {
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+};
+
 struct Material {
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
@@ -43,6 +51,8 @@ struct DeletionQueue
 	}
 };
 
+constexpr unsigned int FRAME_OVERLAP = 2;
+
 class VulkanEngine {
 public:
 	bool _isInitialized{ false };
@@ -68,15 +78,11 @@ public:
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
 
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
-
 	VkRenderPass _renderPass;
 
 	std::vector<VkFramebuffer> _frameBuffers;
 
-	VkSemaphore _presentSemaphore, _renderSemaphore;
-	VkFence _renderFence;
+	FrameData _frames[FRAME_OVERLAP];
 
 	VkPipelineLayout _meshPipelineLayout;
 	VkPipeline _meshPipeline;
@@ -111,6 +117,8 @@ public:
 	Mesh* get_mesh(const std::string& name);
 
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
+	FrameData& get_current_frame();
 
 private:
 	void init_vulkan();
