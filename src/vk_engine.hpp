@@ -10,12 +10,21 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <unordered_map>
 
+struct GPUCameraData {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+};
+
 struct FrameData {
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
+
+	AllocatedBuffer cameraBuffer;
+	VkDescriptorSet globalDescriptor;
 };
 
 struct Material {
@@ -95,6 +104,9 @@ public:
 	AllocatedImage _depthImage;
 	VkFormat _depthFormat;
 
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorPool _descriptorPool;
+
 	// Meshs /////////////
 
 	std::vector<RenderObject> _renderables;
@@ -142,6 +154,9 @@ private:
 	void upload_mesh(Mesh& mesh);
 
 	void init_scene();
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void init_descriptors();
 };
 
 class PipelineBuilder {
