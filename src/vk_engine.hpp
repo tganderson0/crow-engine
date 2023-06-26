@@ -63,7 +63,8 @@ class VulkanEngine {
 public:
 	bool _isInitialized{ false };
 	int _frameNumber{ 0 };
-	
+	int _selectedShader{ 0 };
+
 	VkExtent2D _windowExtent{ 1700, 900 };
 
 	GLFWwindow* _window;
@@ -72,16 +73,9 @@ public:
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
 	VkDevice _device;
-	VkSurfaceKHR _surface;
 
-	VkSwapchainKHR _swapchain;
-	VkFormat _swapchainImageFormat; // Image format expected by the windowing system
-
-	// Array of images from the swapchain
-	std::vector<VkImage> _swapchainImages;
-	
-	// Array of image-views from the swapchain
-	std::vector<VkImageView> _swapchainImageViews;
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
 
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
@@ -91,25 +85,21 @@ public:
 
 	VkRenderPass _renderPass;
 
+	VkSurfaceKHR _surface;
+	VkSwapchainKHR _swapchain;
+	VkFormat _swapchainImageFormat; // Image format expected by the windowing system
+
 	std::vector<VkFramebuffer> _frameBuffers;
-
-	VkSemaphore _presentSemaphore, _renderSemaphore;
-	VkFence _renderFence;
-
-	VkPipelineLayout _trianglePipelineLayout;
-	VkPipeline _trianglePipeline;
-	VkPipeline _redTrianglePipeline;
+	// Array of images from the swapchain
+	std::vector<VkImage> _swapchainImages;
+	// Array of image-views from the swapchain
+	std::vector<VkImageView> _swapchainImageViews;
 
 	DeletionQueue _mainDeletionQueue;
+
 	VmaAllocator _allocator;
 
-	VkPipeline _meshPipeline;
-	Mesh _triangleMesh;
-
-	VkPipelineLayout _meshPipelineLayout;
-
-	Mesh _monkeyMesh;
-
+	// Depth Resources
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
 
@@ -132,11 +122,6 @@ public:
 
 	// Our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
-
-
-
-
-	int _selectedShader{ 0 };
 
 	void init();
 
