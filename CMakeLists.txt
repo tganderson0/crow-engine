@@ -24,12 +24,6 @@ set(SOURCE_FILES
 	src/vk_textures.cpp
 )
 
-# set(IMGUI_SOURCES
-# 	external/imgui/imgui.cpp
-# 	external/imgui/imgui_draw.cpp
-# 	external/imgui/imgui_widgets.cpp
-# )
-
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
