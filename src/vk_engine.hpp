@@ -10,6 +10,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
+#include <unordered_map>
 
 
 struct DeletionQueue
@@ -31,6 +32,24 @@ struct DeletionQueue
 
 		deletors.clear();
 	}
+};
+
+// Note that we store the VkPipeline and layout by value, not pointer
+// They are 64 bit handles to internal driver structures anyways, so storing pointers to them isn't very useful
+
+struct Material
+{
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
+};
+
+struct RenderObject
+{
+	Mesh* mesh;
+
+	Material* material;
+
+	glm::mat4 transformMatrix;
 };
 
 struct MeshPushConstants
@@ -97,6 +116,26 @@ public:
 	// The format for the depth image
 	VkFormat _depthFormat;
 
+	std::vector<RenderObject> _renderables;
+
+	std::unordered_map<std::string, Material> _materials;
+	std::unordered_map<std::string, Mesh> _meshes;
+
+	// Create material and add it to the map
+	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+
+	// Returns nullptr if it can't be found
+	Material* get_material(const std::string& name);
+
+	// Returns nullptr if it can't be found
+	Mesh* get_mesh(const std::string& name);
+
+	// Our draw function
+	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
+
+
+
 	int _selectedShader{ 0 };
 
 	void init();
@@ -126,6 +165,8 @@ private:
 
 	void load_meshes();
 
+	void init_scene();
+
 	void upload_mesh(Mesh& mesh);
 };
 
@@ -141,6 +182,7 @@ public:
 	VkPipelineColorBlendAttachmentState _colorBlendAttachment;
 	VkPipelineMultisampleStateCreateInfo _multisampling;
 	VkPipelineLayout _pipelineLayout;
+	VkPipelineDepthStencilStateCreateInfo _depthStencil;
 
 	VkPipeline buildPipeline(VkDevice device, VkRenderPass pass);
 };
