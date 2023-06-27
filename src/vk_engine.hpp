@@ -90,7 +90,12 @@ struct GPUSceneData
 	glm::vec4 sunlightColor;
 };
 
-
+struct UploadContext
+{
+	VkFence _uploadFence;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _commandBuffer;
+};
 
 struct GPUObjectData
 {
@@ -116,7 +121,6 @@ public:
 	VkPhysicalDevice _chosenGPU;
 	VkDevice _device;
 	VkPhysicalDeviceProperties _gpuProperties;
-
 
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
@@ -149,6 +153,7 @@ public:
 
 	VmaAllocator _allocator;
 
+	UploadContext _uploadContext;
 
 	// Depth Resources
 	VkImageView _depthImageView;
@@ -162,6 +167,8 @@ public:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 
+	VkDescriptorPool _descriptorPool;
+	
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
 	// Create material and add it to the map
@@ -173,7 +180,8 @@ public:
 	// Returns nullptr if it can't be found
 	Mesh* get_mesh(const std::string& name);
 
-	VkDescriptorPool _descriptorPool;
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 
 	// Our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);

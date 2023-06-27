@@ -8,7 +8,7 @@ namespace vkinit {
 
 	VkCommandBufferAllocateInfo command_buffer_allocate_info(VkCommandPool pool, uint32_t count = 1, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-	VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags = 0);
+	VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags);
 
 	VkFramebufferCreateInfo framebuffer_create_info(VkRenderPass renderPass, VkExtent2D extent);
 
@@ -46,6 +46,7 @@ namespace vkinit {
 
 	VkWriteDescriptorSet write_descriptor_buffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
 
+	VkCommandBufferBeginInfo command_buffer_begin_info(VkCommandBufferUsageFlags flags);
 
-
+	VkSubmitInfo submit_info(VkCommandBuffer* cmd);
 }

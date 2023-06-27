@@ -339,6 +339,22 @@ void VulkanEngine::init_commands()
 			vkDestroyCommandPool(_device, _frames[i]._commandPool, nullptr);
 		});
 	}
+
+	VkCommandPoolCreateInfo uploadCommandPoolInfo = vkinit::command_pool_create_info(_graphicsQueueFamily);
+
+	// Create pool for upload context
+	VK_CHECK(vkCreateCommandPool(_device, &uploadCommandPoolInfo, nullptr, &_uploadContext._commandPool));
+
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyCommandPool(_device, _uploadContext._commandPool, nullptr);
+		});
+
+	// Allocate the default command buffer that we will use for the instant commands
+	VkCommandBufferAllocateInfo cmdAllocInfo = vkinit::command_buffer_allocate_info(_uploadContext._commandPool, 1);
+
+	VkCommandBuffer cmd = nullptr;
+	VK_CHECK(vkAllocateCommandBuffers(_device, &cmdAllocInfo, &_uploadContext._commandBuffer));
+
 }
 
 void VulkanEngine::init_default_renderpass()
@@ -471,6 +487,8 @@ void VulkanEngine::init_sync_structures()
 
 	VkSemaphoreCreateInfo semaphoreCreateInfo = vkinit::semaphore_create_info();
 
+
+
 	for (int i = 0; i < FRAME_OVERLAP; i++)
 	{
 		VK_CHECK(vkCreateFence(_device, &fenceCreateInfo, nullptr, &_frames[i]._renderFence));
@@ -488,6 +506,14 @@ void VulkanEngine::init_sync_structures()
 			vkDestroySemaphore(_device, _frames[i]._renderSemaphore, nullptr);
 			});
 	}
+
+
+	VkFenceCreateInfo uploadFenceCreateInfo = vkinit::fence_create_info();
+	VK_CHECK(vkCreateFence(_device, &uploadFenceCreateInfo, nullptr, &_uploadContext._uploadFence));
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyFence(_device, _uploadContext._uploadFence, nullptr);
+		});
+
 }
 
 void VulkanEngine::init_descriptors()
@@ -907,37 +933,105 @@ void VulkanEngine::load_meshes()
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
 {
-	// Allocate the vertex buffer
-	VkBufferCreateInfo bufferInfo = {};
-	bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	bufferInfo.pNext = nullptr;
-	// This is the total size, in bytes, of the buffer we are allocating
-	bufferInfo.size = mesh._vertices.size() * sizeof(Vertex);
+	const size_t bufferSize = mesh._vertices.size() * sizeof(Vertex);
 
-	// This buffer is oging to be used as a Vertex Buffer
-	bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+	// Allocate the staging buffer
+	VkBufferCreateInfo stagingBufferInfo{};
+	stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	stagingBufferInfo.pNext = nullptr;
 
-	// Let the VMA library know that this data should be writeable by a CPU, but also readable by GPU
-	VmaAllocationCreateInfo vmaallocInfo = {};
-	vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+	stagingBufferInfo.size = bufferSize;
+	stagingBufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; // Tells Vulkan that this buffer will only be used as a source for transfer commands.
+
+	// Let the VMA library know that this should be on CPU RAM
+	VmaAllocationCreateInfo vmaAllocInfo{};
+	vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+
+	AllocatedBuffer stagingBuffer{};
 
 	// Allocate the buffer
-	VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+	VK_CHECK(vmaCreateBuffer(_allocator, &stagingBufferInfo, &vmaAllocInfo,
+		&stagingBuffer._buffer,
+		&stagingBuffer._allocation,
+		nullptr));
+
+	// Copy vertex data
+	void* data;
+	vmaMapMemory(_allocator, stagingBuffer._allocation, &data);
+	memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
+	vmaUnmapMemory(_allocator, stagingBuffer._allocation);
+
+	// Now that the vertex buffer is in a Vulkan CPU side buffer, we need to create the actual GPU-side buffer
+
+	// Allocate vertex buffer
+	VkBufferCreateInfo vertexBufferInfo{};
+	vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	vertexBufferInfo.pNext = nullptr;
+
+	// This is the total size, in bytes, of the buffer we are allocating
+	vertexBufferInfo.size = bufferSize;
+
+	// This buffer is going to be used as a Vertex Buffer
+	vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+
+	// Let the VMA library know that this data should be GPU native
+	vmaAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+
+	// Allocate the buffer
+	VK_CHECK(vmaCreateBuffer(_allocator, &vertexBufferInfo, &vmaAllocInfo,
 		&mesh._vertexBuffer._buffer,
 		&mesh._vertexBuffer._allocation,
 		nullptr));
-
+	
+	// Add the destruction of mesh buffer to the deletion queue
 	_mainDeletionQueue.push_function([=]() {
 		vmaDestroyBuffer(_allocator, mesh._vertexBuffer._buffer, mesh._vertexBuffer._allocation);
 		});
 
-	// Copy vertex data
-	void* data;
-	vmaMapMemory(_allocator, mesh._vertexBuffer._allocation, &data);
 
-	memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
 
-	vmaUnmapMemory(_allocator, mesh._vertexBuffer._allocation);
+	immediate_submit([=](VkCommandBuffer cmd) {
+		VkBufferCopy copy;
+		copy.dstOffset = 0;
+		copy.srcOffset = 0;
+		copy.size = bufferSize;
+		vkCmdCopyBuffer(cmd, stagingBuffer._buffer, mesh._vertexBuffer._buffer, 1, &copy);
+		});
+
+	vmaDestroyBuffer(_allocator, stagingBuffer._buffer, stagingBuffer._allocation);
+
+
+	//// Allocate the vertex buffer
+	//VkBufferCreateInfo bufferInfo = {};
+	//bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	//bufferInfo.pNext = nullptr;
+	//// This is the total size, in bytes, of the buffer we are allocating
+	//bufferInfo.size = mesh._vertices.size() * sizeof(Vertex);
+
+	//// This buffer is oging to be used as a Vertex Buffer
+	//bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+	//// Let the VMA library know that this data should be writeable by a CPU, but also readable by GPU
+	//VmaAllocationCreateInfo vmaallocInfo = {};
+	//vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+	//// Allocate the buffer
+	//VK_CHECK(vmaCreateBuffer(_allocator, &bufferInfo, &vmaallocInfo,
+	//	&mesh._vertexBuffer._buffer,
+	//	&mesh._vertexBuffer._allocation,
+	//	nullptr));
+
+	//_mainDeletionQueue.push_function([=]() {
+	//	vmaDestroyBuffer(_allocator, mesh._vertexBuffer._buffer, mesh._vertexBuffer._allocation);
+	//	});
+
+	//// Copy vertex data
+	//void* data;
+	//vmaMapMemory(_allocator, mesh._vertexBuffer._allocation, &data);
+
+	//memcpy(data, mesh._vertices.data(), mesh._vertices.size() * sizeof(Vertex));
+
+	//vmaUnmapMemory(_allocator, mesh._vertexBuffer._allocation);
 
 }
 
@@ -1048,6 +1142,7 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 			// Bind the descriptor set when changing pipeline
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniform_offset);
 
+			// TODO: Rewrite this to use a dynamic offset (like end of chapter 4 suggests)
 			// Object data descriptor
 			vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 1, 1, &get_current_frame().objectDescriptor, 0, nullptr);
 		}
@@ -1115,4 +1210,32 @@ size_t VulkanEngine::pad_uniform_buffer_size(size_t originalSize)
 	
 	return alignedSize;
 
+}
+
+void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function)
+{
+	VkCommandBuffer cmd = _uploadContext._commandBuffer;
+
+	// Begin the command buffer recording. We will use this command buffer exactly once before resetting, so we tell vulkan that
+	VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+	VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+	// Execute the function
+	function(cmd);
+
+	VK_CHECK(vkEndCommandBuffer(cmd));
+
+	VkSubmitInfo submit = vkinit::submit_info(&cmd);
+
+	// Submit command buffer to the queue and execute it.
+	// _uploadFence will now block until the graphic commands finish execution
+
+	VK_CHECK(vkQueueSubmit(_graphicsQueue, 1, &submit, _uploadContext._uploadFence));
+
+	vkWaitForFences(_device, 1, &_uploadContext._uploadFence, true, 9999999999);
+	vkResetFences(_device, 1, &_uploadContext._uploadFence);
+
+	// Reset the command buffers inside the command pool
+	vkResetCommandPool(_device, _uploadContext._commandPool, 0);
 }
