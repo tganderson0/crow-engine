@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 
+
 struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
@@ -58,6 +59,38 @@ struct MeshPushConstants
 	glm::mat4 render_matrix;
 };
 
+struct FrameData
+{
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+
+	AllocatedBuffer cameraBuffer;
+
+	VkDescriptorSet globalDescriptor;
+
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+};
+
+struct GPUCameraData
+{
+	glm::mat4 view;
+	glm::mat4 projection;
+	glm::mat4 viewproj;
+};
+
+struct GPUSceneData
+{
+	glm::vec4 fogColor; // w if for exponent
+	glm::vec4 fogDistances; // x for min, y for max, zw unused
+	glm::vec4 ambientColor; 
+	glm::vec4 sunlightDirection; // w for sun power
+	glm::vec4 sunlightColor;
+};
+
+
+constexpr unsigned int FRAME_OVERLAP = 2;
+
 
 class VulkanEngine {
 public:
@@ -73,15 +106,21 @@ public:
 	VkDebugUtilsMessengerEXT _debug_messenger;
 	VkPhysicalDevice _chosenGPU;
 	VkDevice _device;
+	VkPhysicalDeviceProperties _gpuProperties;
 
-	VkSemaphore _presentSemaphore, _renderSemaphore;
-	VkFence _renderFence;
 
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
 
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
+	// Frame Storage
+	FrameData _frames[FRAME_OVERLAP];
+
+	// Getter for the frame we are rendering to right now
+	FrameData& get_current_frame();
+
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
+
 
 	VkRenderPass _renderPass;
 
@@ -99,6 +138,7 @@ public:
 
 	VmaAllocator _allocator;
 
+
 	// Depth Resources
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
@@ -111,6 +151,9 @@ public:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void init_descriptors();
+
 	// Create material and add it to the map
 	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
 
@@ -119,6 +162,9 @@ public:
 
 	// Returns nullptr if it can't be found
 	Mesh* get_mesh(const std::string& name);
+
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorPool _descriptorPool;
 
 	// Our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
@@ -153,6 +199,9 @@ private:
 	void init_scene();
 
 	void upload_mesh(Mesh& mesh);
+
+	size_t pad_uniform_buffer_size(size_t originalSize);
+
 };
 
 class PipelineBuilder
