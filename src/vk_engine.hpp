@@ -65,8 +65,10 @@ struct FrameData
 	VkFence _renderFence;
 
 	AllocatedBuffer cameraBuffer;
+	AllocatedBuffer objectBuffer;
 
 	VkDescriptorSet globalDescriptor;
+	VkDescriptorSet objectDescriptor;
 
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
@@ -86,6 +88,13 @@ struct GPUSceneData
 	glm::vec4 ambientColor; 
 	glm::vec4 sunlightDirection; // w for sun power
 	glm::vec4 sunlightColor;
+};
+
+
+
+struct GPUObjectData
+{
+	glm::mat4 modelMatrix;
 };
 
 
@@ -121,6 +130,8 @@ public:
 	GPUSceneData _sceneParameters;
 	AllocatedBuffer _sceneParameterBuffer;
 
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorSetLayout _objectSetLayout;
 
 	VkRenderPass _renderPass;
 
@@ -152,7 +163,6 @@ public:
 	std::unordered_map<std::string, Mesh> _meshes;
 
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-	void init_descriptors();
 
 	// Create material and add it to the map
 	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
@@ -163,7 +173,6 @@ public:
 	// Returns nullptr if it can't be found
 	Mesh* get_mesh(const std::string& name);
 
-	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	// Our draw function
@@ -197,6 +206,9 @@ private:
 	void load_meshes();
 
 	void init_scene();
+
+	void init_descriptors();
+
 
 	void upload_mesh(Mesh& mesh);
 
