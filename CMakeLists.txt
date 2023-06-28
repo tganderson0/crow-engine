@@ -35,8 +35,8 @@ set(src_files_imgui
   external/imgui/imgui_draw.cpp
   external/imgui/imgui_tables.cpp
   external/imgui/imgui_widgets.cpp
-  external/imgui/imgui_impl_glfw.cpp
-  external/imgui/imgui_impl_vulkan.cpp
+  external/imgui/backends/imgui_impl_glfw.cpp
+  external/imgui/backends/imgui_impl_vulkan.cpp
   external/imgui/imgui_demo.cpp
 )
 
@@ -82,10 +82,7 @@ target_include_directories(CrowEngine PRIVATE external/imgui)
 find_package(Vulkan REQUIRED)
 target_link_libraries(CrowEngine Vulkan::Vulkan)
 
-add_custom_target(copy_assets
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-assets.cmake
-)
-add_dependencies(CrowEngine copy_assets)
+
 
 
 file(GLOB_RECURSE GLSL_SOURCE_FILES
@@ -111,7 +108,10 @@ add_custom_target(
     DEPENDS ${SPIRV_BINARY_FILES}
     )
 
-
+add_custom_target(copy_assets
+COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-assets.cmake
+)
+add_dependencies(CrowEngine copy_assets)
 
 
 # target_sources(imgui PRIVATE 
