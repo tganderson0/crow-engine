@@ -45,7 +45,7 @@ add_subdirectory(external)
 # This is the main target
 #
 add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} src/main.cpp)
-# target_include_directories(CrowEngine PRIVATE external/imgui)
+target_include_directories(CrowEngine PRIVATE external/imgui)
 
 #
 # We want the C++ 20 standard for our project
@@ -68,23 +68,7 @@ target_link_libraries(CrowEngine imgui)
 target_include_directories(CrowEngine PRIVATE external/tiny_obj_loader)
 target_include_directories(CrowEngine PRIVATE external/stb_image)
 target_include_directories(CrowEngine PRIVATE external/vk_mem_alloc)
-target_include_directories(CrowEngine PUBLIC external/imgui)
-
-
-add_library(imgui STATIC)
-
-
-target_sources(imgui PRIVATE 
-  external/imgui/imgui.h
-  external/imgui/imgui.cpp
-
-  external/imgui/imgui_demo.cpp
-  external/imgui/imgui_draw.cpp
-  external/imgui/imgui_widgets.cpp
-
-  external/imgui/backends/imgui_impl_vulkan.cpp
-  external/imgui/backends/imgui_impl_glfw.cpp
-  )
+target_include_directories(CrowEngine PRIVATE external/imgui)
 
 
 find_package(Vulkan REQUIRED)
@@ -118,3 +102,17 @@ add_custom_target(
     Shaders 
     DEPENDS ${SPIRV_BINARY_FILES}
     )
+
+
+    
+add_library(imgui STATIC)
+
+target_sources(imgui PRIVATE 
+  external/imgui/imgui.cpp  
+  external/imgui/imgui_draw.cpp
+  external/imgui/imgui_tables.cpp
+  external/imgui/imgui_widgets.cpp
+  external/imgui/imgui_impl_glfw.cpp
+  external/imgui/imgui_impl_vulkan.cpp
+  external/imgui/imgui_demo.cpp
+)

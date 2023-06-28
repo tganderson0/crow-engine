@@ -11,7 +11,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <unordered_map>
-
+#include "imgui.h"
+#include "backends/imgui_impl_vulkan.h"
+#include "backends/imgui_impl_glfw.h"
 
 
 struct DeletionQueue
@@ -227,6 +229,8 @@ private:
 	void init_scene();
 
 	void init_descriptors();
+
+	void init_imgui();
 
 
 	void upload_mesh(Mesh& mesh);
