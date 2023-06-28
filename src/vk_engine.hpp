@@ -1,5 +1,8 @@
 #pragma once
 
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
+#include "imgui_impl_glfw.h"
 
 
 #include "vk_types.hpp"
@@ -11,9 +14,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <unordered_map>
-#include "imgui.h"
-#include "backends/imgui_impl_vulkan.h"
-#include "backends/imgui_impl_glfw.h"
 
 
 struct DeletionQueue

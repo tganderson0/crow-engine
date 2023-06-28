@@ -30,8 +30,17 @@ set(SOURCE_FILES
 # 	external/imgui/imgui_widgets.cpp
 # )
 
+set(src_files_imgui
+  external/imgui/imgui.cpp  
+  external/imgui/imgui_draw.cpp
+  external/imgui/imgui_tables.cpp
+  external/imgui/imgui_widgets.cpp
+  external/imgui/imgui_impl_glfw.cpp
+  external/imgui/imgui_impl_vulkan.cpp
+  external/imgui/imgui_demo.cpp
+)
 
-
+source_group("ImGui" FILES ${src_files_imgui})
 
 
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
@@ -44,7 +53,7 @@ add_subdirectory(external)
 #
 # This is the main target
 #
-add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} src/main.cpp)
+add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} ${src_files_imgui} src/main.cpp)
 target_include_directories(CrowEngine PRIVATE external/imgui)
 
 #
@@ -63,7 +72,6 @@ endif()
 
 target_link_libraries(CrowEngine glfw)
 target_link_libraries(CrowEngine vk-bootstrap)
-target_link_libraries(CrowEngine imgui)
 
 target_include_directories(CrowEngine PRIVATE external/tiny_obj_loader)
 target_include_directories(CrowEngine PRIVATE external/stb_image)
@@ -104,15 +112,14 @@ add_custom_target(
     )
 
 
-    
-add_library(imgui STATIC)
 
-target_sources(imgui PRIVATE 
-  external/imgui/imgui.cpp  
-  external/imgui/imgui_draw.cpp
-  external/imgui/imgui_tables.cpp
-  external/imgui/imgui_widgets.cpp
-  external/imgui/backends/imgui_impl_glfw.cpp
-  external/imgui/backends/imgui_impl_vulkan.cpp
-  external/imgui/imgui_demo.cpp
-)
+
+# target_sources(imgui PRIVATE 
+#   external/imgui/imgui.cpp  
+#   external/imgui/imgui_draw.cpp
+#   external/imgui/imgui_tables.cpp
+#   external/imgui/imgui_widgets.cpp
+#   external/imgui/imgui_impl_glfw.cpp
+#   external/imgui/imgui_impl_vulkan.cpp
+#   external/imgui/imgui_demo.cpp
+# )

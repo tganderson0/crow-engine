@@ -153,6 +153,9 @@ void VulkanEngine::init_scene()
 
 void VulkanEngine::draw()
 {
+	ImGui::Render();
+
+
 	// Wait until the GPU has finished rendering the last frame. Timeout of 1 second
 	VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
 	VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
@@ -193,6 +196,9 @@ void VulkanEngine::draw()
 	vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	draw_objects(cmd, _renderables.data(), _renderables.size());
+
+
+	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
 	// Finalize the render pass
 	vkCmdEndRenderPass(cmd);
