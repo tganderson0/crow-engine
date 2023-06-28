@@ -40,8 +40,15 @@ struct DeletionQueue
 
 struct Material
 {
+	VkDescriptorSet textureSet{ VK_NULL_HANDLE };
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
+};
+
+struct Texture
+{
+	AllocatedImage image;
+	VkImageView imageView;
 };
 
 struct RenderObject
@@ -136,6 +143,7 @@ public:
 
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
+	VkDescriptorSetLayout _singleTextureSetLayout;
 
 	VkRenderPass _renderPass;
 
@@ -166,6 +174,7 @@ public:
 
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
+	std::unordered_map<std::string, Texture> _loadedTextures;
 
 	VkDescriptorPool _descriptorPool;
 	
@@ -193,6 +202,8 @@ public:
 	void draw();
 
 	void run();
+
+	void load_images();
 
 private:
 	void init_vulkan();
