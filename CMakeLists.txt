@@ -30,13 +30,17 @@ set(SOURCE_FILES
 # 	external/imgui/imgui_widgets.cpp
 # )
 
+
+
+
+
 set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 add_subdirectory(external/glfw)
 add_subdirectory(external/vk-bootstrap)
-
+add_subdirectory(external)
 #
 # This is the main target
 #
@@ -59,10 +63,29 @@ endif()
 
 target_link_libraries(CrowEngine glfw)
 target_link_libraries(CrowEngine vk-bootstrap)
+target_link_libraries(CrowEngine imgui)
 
 target_include_directories(CrowEngine PRIVATE external/tiny_obj_loader)
 target_include_directories(CrowEngine PRIVATE external/stb_image)
 target_include_directories(CrowEngine PRIVATE external/vk_mem_alloc)
+target_include_directories(CrowEngine PUBLIC external/imgui)
+
+
+add_library(imgui STATIC)
+
+
+target_sources(imgui PRIVATE 
+  external/imgui/imgui.h
+  external/imgui/imgui.cpp
+
+  external/imgui/imgui_demo.cpp
+  external/imgui/imgui_draw.cpp
+  external/imgui/imgui_widgets.cpp
+
+  external/imgui/backends/imgui_impl_vulkan.cpp
+  external/imgui/backends/imgui_impl_glfw.cpp
+  )
+
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(CrowEngine Vulkan::Vulkan)
@@ -71,3 +94,27 @@ add_custom_target(copy_assets
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-assets.cmake
 )
 add_dependencies(CrowEngine copy_assets)
+
+
+file(GLOB_RECURSE GLSL_SOURCE_FILES
+    "${PROJECT_SOURCE_DIR}/shaders/*.frag"
+    "${PROJECT_SOURCE_DIR}/shaders/*.vert"
+    "${PROJECT_SOURCE_DIR}/shaders/*.comp"
+    )
+
+foreach(GLSL ${GLSL_SOURCE_FILES})
+  message(STATUS "BUILDING SHADER")
+  get_filename_component(FILE_NAME ${GLSL} NAME)
+  set(SPIRV "${PROJECT_SOURCE_DIR}/shaders/${FILE_NAME}.spv")
+  message(STATUS ${GLSL})
+  add_custom_command(
+    OUTPUT ${SPIRV}
+    COMMAND ${GLSL_VALIDATOR} -V ${GLSL} -o ${SPIRV}
+    DEPENDS ${GLSL})
+  list(APPEND SPIRV_BINARY_FILES ${SPIRV})
+endforeach(GLSL)
+
+add_custom_target(
+    Shaders 
+    DEPENDS ${SPIRV_BINARY_FILES}
+    )
