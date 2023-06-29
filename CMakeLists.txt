@@ -12,6 +12,7 @@ set(HEADER_FILES
 	src/vk_types.hpp
 	src/vk_mesh.hpp
 	src/vk_textures.hpp
+  src/vk_descriptors.hpp
 )
 
 #
@@ -22,6 +23,7 @@ set(SOURCE_FILES
 	src/vk_initializers.cpp
 	src/vk_mesh.cpp
 	src/vk_textures.cpp
+  src/vk_descriptors.cpp
 )
 
 # set(IMGUI_SOURCES

@@ -14,6 +14,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 #include <unordered_map>
+#include "vk_descriptors.hpp"
 
 
 struct DeletionQueue
@@ -73,11 +74,13 @@ struct FrameData
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
-	AllocatedBuffer cameraBuffer;
-	AllocatedBuffer objectBuffer;
+	DeletionQueue _frameDeletionQueue;
 
-	VkDescriptorSet globalDescriptor;
-	VkDescriptorSet objectDescriptor;
+
+	AllocatedBuffer objectBuffer;
+	AllocatedBuffer dynamicDataBuffer;
+
+	vkutil::DescriptorAllocator dynamicDescriptorAllocator;
 
 	VkCommandPool _commandPool;
 	VkCommandBuffer _mainCommandBuffer;
@@ -178,8 +181,12 @@ public:
 	std::unordered_map<std::string, Mesh> _meshes;
 	std::unordered_map<std::string, Texture> _loadedTextures;
 
-	VkDescriptorPool _descriptorPool;
-	
+	//VkDescriptorPool _descriptorPool;
+	vkutil::DescriptorAllocator _descriptorAllocator;
+	vkutil::DescriptorLayoutCache _descriptorLayoutCache;
+
+
+
 	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
 	// Create material and add it to the map
