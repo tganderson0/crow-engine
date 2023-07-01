@@ -18,6 +18,8 @@ link_directories(${CMAKE_SOURCE_DIR}/lib)
 
 add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
 
+set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
+
 # We need a CMAKE_DIR with some code to find external dependencies
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
@@ -72,3 +74,8 @@ if(MSVC_IDE)
 	# Run macro
 	GroupSources(src)
 endif()
+
+add_custom_target(copy_assets
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_LIST_DIR}/copy-assets.cmake
+)
+add_dependencies(${PROJECT_NAME} copy_assets)
