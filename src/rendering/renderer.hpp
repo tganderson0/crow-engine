@@ -6,6 +6,7 @@
 #include "model.hpp"
 #include "shader_dict.hpp"
 #include "gl_texture.hpp"
+#include "camera.hpp"
 
 const unsigned int SCREEN_WIDTH = 800;
 const unsigned int SCREEN_HEIGHT = 600;
@@ -29,4 +30,5 @@ public:
 	GLFWwindow* _window;
 	model_dict _models;
 	texture_dict _textures;
+	camera _camera;
 };

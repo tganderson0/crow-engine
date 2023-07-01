@@ -1,5 +1,8 @@
 #include "model.hpp"
 #include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 model::model(std::vector<float> vertices, std::vector<uint32_t> indices) :
 	_vertices(vertices), _indices(indices)
@@ -66,4 +69,15 @@ model* model_dict::get_model(const std::string& model_name)
 		return &loaded_models[model_name];
 	}
 	return nullptr;
+}
+
+glm::mat4 model_instance::get_model_matrix()
+{
+	glm::mat4 model_mat = glm::mat4(1.0f);
+	model_mat = glm::scale(model_mat, _transform.scale);
+	model_mat = glm::rotate(model_mat, glm::radians(_transform.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	model_mat = glm::rotate(model_mat, glm::radians(_transform.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	model_mat = glm::rotate(model_mat, glm::radians(_transform.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+	model_mat = glm::translate(model_mat, _transform.position);
+	return model_mat;
 }

@@ -39,8 +39,6 @@ int main()
 		processInput(renderer._window);
 
 		// Rendering commands
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
 		renderer.draw();
 
 		// Check and call events and swap the buffers

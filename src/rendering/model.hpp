@@ -3,12 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <glm/glm.hpp>
-
-struct transform {
-	glm::vec3 position;
-	glm::vec3 rotation;
-	glm::vec3 scale;
-};
+#include "generic/transform.hpp"
 
 struct model {
 	std::vector<float> _vertices; // this contains the positions, colors, and texture coordinates, interleaved. (pos, color, uv, pos, ....)
@@ -23,6 +18,8 @@ struct model_instance {
 	model* base_model;
 	unsigned int* shader_program;
 	unsigned int* texture;
+
+	glm::mat4 get_model_matrix();
 };
 
 class model_dict {
