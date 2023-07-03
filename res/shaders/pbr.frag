@@ -31,8 +31,10 @@ in vec2 texCoords;
 uniform vec3 viewPos;
 uniform Material material;
 
-const float PI = 3.14159265359;
+uniform samplerCube irradianceMap;
 
+const float PI = 3.14159265359;
+// ----------------------------------------------------------------------------
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {
     float a = roughness*roughness;
@@ -46,7 +48,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness)
 
     return nom / denom;
 }
-
+// ----------------------------------------------------------------------------
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
     float r = (roughness + 1.0);
@@ -72,42 +74,59 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 {
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
+// ----------------------------------------------------------------------------
 
 vec3 get_albedo()
 {
-  if (material.a_texture)
-  {
-    vec3 albedo = texture(material.albedo_texture, texCoords).rgb;
-    return pow(albedo, vec3(2.2));
-  }
   return material.albedo;
+  // if (material.a_texture)
+  // {
+  //   vec3 albedo = texture(material.albedo_texture, texCoords).rgb;
+  //   return pow(albedo, vec3(2.2));
+  // }
+  // else
+  // {
+  // return material.albedo;
+  // }
 }
 
 float get_metallic()
 {
-  if (material.m_texture)
-  {
-    return texture(material.metallic_texture, texCoords).r;
-  }
   return material.metallic;
+  // if (material.m_texture)
+  // {
+  //   return texture(material.metallic_texture, texCoords).r;
+  // }
+  // else
+  // {
+  // return material.metallic;
+  // }
 }
 
 float get_roughness()
 {
-  if (material.r_texture)
-  {
-    return texture(material.roughness_texture, texCoords).r;
-  }
   return material.roughness;
+  // if (material.r_texture)
+  // {
+  //   return texture(material.roughness_texture, texCoords).r;
+  // }
+  // else
+  // {
+  // return material.roughness;
+  // }
 }
 
 float get_ao()
 {
-  if (material.o_texture)
-  {
-    return texture(material.ao_texture, texCoords).r;
-  }
   return material.ao;
+  // if (material.o_texture)
+  // {
+  //   return texture(material.ao_texture, texCoords).r;
+  // }
+  // else
+  // {
+  // return material.ao;
+  // }
 }
 
 void main()
@@ -143,26 +162,35 @@ void main()
     // cook-torrance brdf
     float NDF = DistributionGGX(N, H, roughness);
     float G = GeometrySmith(N, V, L, roughness);
-    vec3 F = fresnelSchlick(max(dot(V, H), 0.0), F0);
-
-    vec3 kS = F;
-    vec3 kD = vec3(1.0) - kS;
-    kD *= 1.0 - metallic;
+    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
     vec3 numerator = NDF * G * F;
     float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
     vec3 specular = numerator / denominator;
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0) - kS;
+    kD *= 1.0 - metallic;
 
     // add to outgoing radiance Lo
     float NdotL = max(dot(N, L), 0.0);
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
   }
 
-  vec3 ambient = vec3(0.03) * albedo * ao;
+  vec3 kS = fresnelSchlick(max(dot(N, V), 0.0), F0);
+  vec3 kD = 1.0 - kS;
+  kD *= 1.0 - metallic;
+
+  vec3 irradiance = texture(irradianceMap, N).rgb;
+
+  vec3 diffuse = irradiance * albedo;
+  vec3 ambient = (kD * diffuse) * ao;
   vec3 color = ambient + Lo;
 
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0/2.2));
 
-  fragColor = vec4(color, 1.0);
+  fragColor = vec4(irradiance, 1.0);
+
+  // fragColor = vec4(roughness, roughness, roughness, 1.0);
 }

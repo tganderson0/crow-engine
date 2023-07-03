@@ -63,6 +63,10 @@ void Renderer::draw()
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	default_shader.use();
+	
+	// Set IBL irradiance texture
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemap.env_cubemap);
 
 	glm::mat4 view_mat = glm::mat4(1.0f);
 	glm::mat4 projection_mat = glm::perspective(45.0f, (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
@@ -74,6 +78,8 @@ void Renderer::draw()
 	{
 		renderable.draw(default_shader);
 	}
+
+	cubemap.draw(view_mat, projection_mat);
 
 	draw_imgui();
 
@@ -125,15 +131,23 @@ void Renderer::init_gl()
 
 	stbi_set_flip_vertically_on_load(true);
 	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
 }
 
 
 void Renderer::init_scene()
 {
 	default_shader = Shader("pbr.vert", "pbr.frag");
+	default_shader.setInt("irradianceMap", 0);
 
 	Model sphere("color_sphere.json", mesh_dict, texture_dict);
 	renderables.push_back(sphere);
+
+	cubemap.init("background/background1.hdr");
+
+	int scrWidth, scrHeight;
+	glfwGetFramebufferSize(window, &scrWidth, &scrHeight);
+	glViewport(0, 0, scrWidth, scrHeight);
 }
 
 void Renderer::init_imgui()

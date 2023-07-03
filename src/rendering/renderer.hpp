@@ -12,6 +12,7 @@
 #include "material.hpp"
 #include "shader.hpp"
 #include "transform.hpp"
+#include "cubemap.hpp"
 
 #include "utilities/deletion_queue.hpp"
 
@@ -50,10 +51,12 @@ private:
 	DeletionQueue global_deletion;
 	DeletionQueue scene_deletion;
 
+	Cubemap cubemap;
+
 	double total_time;
 	double delta_time;
 
-	glm::vec3 clear_color = glm::vec3(0.01f, 0.01f, 0.01f);
+	glm::vec3 clear_color = glm::vec3(0.4f, 0.58f, 0.93f);
 
 	Shader default_shader;
 };

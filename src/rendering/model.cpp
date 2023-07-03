@@ -237,8 +237,8 @@ void Model::draw(Shader& shader)
 	// Uniform albedo
 	if (material.a_texture)
 	{
-		glActiveTexture(GL_TEXTURE0);
-		shader.setInt("material.albedo_texture", 0);
+		glActiveTexture(GL_TEXTURE8);
+		shader.setInt("material.albedo_texture", 8);
 		shader.setBool("material.a_texture", true);
 		glBindTexture(GL_TEXTURE_2D, material.albedo_texture->id);
 	}
@@ -251,8 +251,8 @@ void Model::draw(Shader& shader)
 	// Uniform metallic
 	if (material.m_texture)
 	{
-		glActiveTexture(GL_TEXTURE1);
-		shader.setInt("material.metallic_texture", 1);
+		glActiveTexture(GL_TEXTURE9);
+		shader.setInt("material.metallic_texture", 9);
 		shader.setBool("material.m_texture", true);
 		glBindTexture(GL_TEXTURE_2D, material.metallic_texture->id);
 	}
@@ -265,8 +265,8 @@ void Model::draw(Shader& shader)
 	// Uniform roughness
 	if (material.r_texture)
 	{
-		glActiveTexture(GL_TEXTURE2);
-		shader.setInt("material.roughness_texture", 2);
+		glActiveTexture(GL_TEXTURE10);
+		shader.setInt("material.roughness_texture", 10);
 		shader.setBool("material.r_texture", true);
 		glBindTexture(GL_TEXTURE_2D, material.roughness_texture->id);
 	}
@@ -279,8 +279,8 @@ void Model::draw(Shader& shader)
 	// Uniform ao
 	if (material.o_texture)
 	{
-		glActiveTexture(GL_TEXTURE3);
-		shader.setInt("material.ao_texture", 3);
+		glActiveTexture(GL_TEXTURE11);
+		shader.setInt("material.ao_texture", 11);
 		shader.setBool("material.o_texture", true);
 		glBindTexture(GL_TEXTURE_2D, material.ao_texture->id);
 	}
@@ -293,8 +293,8 @@ void Model::draw(Shader& shader)
 	// Normal map
 	if (material.n_texture)
 	{
-		glActiveTexture(GL_TEXTURE4);
-		shader.setInt("material.normal_map_texture", 4);
+		glActiveTexture(GL_TEXTURE12);
+		shader.setInt("material.normal_map_texture", 12);
 		shader.setBool("material.n_texture", true);
 		glBindTexture(GL_TEXTURE_2D, material.normal_map_texture->id);
 	}

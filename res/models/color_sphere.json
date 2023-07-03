@@ -1,13 +1,13 @@
 {
   "model_name": "sphere",
   "mesh": "sphere.obj",
-  "albedo": [0.0, 1.0, 0.0],
+  "albedo": [1.0, 1.0, 1.0],
   "albedo_texture": null,
   "metallic": 0.2,
   "metallic_texture": null,
   "roughness": 0.2,
   "roughness_texture": null,
-  "ao": 0.3,
+  "ao": 1.0,
   "ao_texture": null,
   "normal_map_texture": null
 }
