@@ -1,7 +1,7 @@
 {
   "model_name": "sphere",
   "mesh": "sphere.obj",
-  "albedo": [0.9, 0.9, 1.0],
+  "albedo": [0.0, 1.0, 0.0],
   "albedo_texture": null,
   "metallic": 0.2,
   "metallic_texture": null,

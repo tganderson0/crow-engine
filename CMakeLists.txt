@@ -13,10 +13,23 @@ file(GLOB_RECURSE HEADER_FILES
   ${CMAKE_SOURCE_DIR}/src/*.hpp
 )
 
+set(src_files_imgui
+  thirdparty/imgui/imgui.cpp  
+  thirdparty/imgui/imgui_draw.cpp
+  thirdparty/imgui/imgui_tables.cpp
+  thirdparty/imgui/imgui_widgets.cpp
+  thirdparty/imgui/imgui_impl_glfw.cpp
+  thirdparty/imgui/imgui_impl_opengl3.cpp
+  thirdparty/imgui/imgui_demo.cpp
+  thirdparty/imgui/imgui_impl_opengl3_loader.h
+)
+
+source_group("ThirdParty\\ImGui" FILES ${src_files_imgui})
+
 # Add .lib files
 link_directories(${CMAKE_SOURCE_DIR}/lib)
 
-add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES})
+add_executable(${PROJECT_NAME} ${HEADER_FILES} ${SOURCE_FILES} ${src_files_imgui})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 
@@ -53,6 +66,8 @@ include_directories(
 
 # Define the link libraries
 target_link_libraries(${PROJECT_NAME} ${LIBS})
+
+target_include_directories(${PROJECT_NAME} PRIVATE thirdparty/imgui)
 
 # Create virtual folders to make it look nicer in VS
 if(MSVC_IDE)

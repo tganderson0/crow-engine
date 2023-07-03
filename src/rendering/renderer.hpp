@@ -15,6 +15,10 @@
 
 #include "utilities/deletion_queue.hpp"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+
 const unsigned int SCR_WIDTH = 1600;
 const unsigned int SCR_HEIGHT = 1200;
 
@@ -33,6 +37,9 @@ private:
 	void init_window();
 	void init_gl();
 	void init_scene();
+	void init_imgui();
+
+	void draw_imgui();
 
 private:
 	std::vector<Light> lights;
@@ -45,6 +52,8 @@ private:
 
 	double total_time;
 	double delta_time;
+
+	glm::vec3 clear_color = glm::vec3(0.01f, 0.01f, 0.01f);
 
 	Shader default_shader;
 };

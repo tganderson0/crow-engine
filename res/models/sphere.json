@@ -6,7 +6,7 @@
   "metallic": 0.2,
   "metallic_texture": "rust/metallic.png",
   "roughness": 0.2,
-  "roughness_texture": "rust/normal.png",
+  "roughness_texture": "rust/roughness.png",
   "ao": 0.3,
   "ao_texture": null,
   "normal_map_texture": null

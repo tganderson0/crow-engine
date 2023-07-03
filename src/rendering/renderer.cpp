@@ -12,12 +12,54 @@ void Renderer::init()
 {
 	init_window();
 	init_gl();
+	init_imgui();
 	init_scene();
+}
+
+void Renderer::draw_imgui()
+{
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	//bool show_window = true;
+	//ImGui::ShowDemoWindow(&show_window);
+
+	{
+		ImGui::Begin("Object Properties");
+
+		if (ImGui::CollapsingHeader("Transform"))
+		{
+			ImGui::DragFloat3("Position", glm::value_ptr(renderables[0].transform.position), 0.1f);
+			ImGui::DragFloat3("Rotation", glm::value_ptr(renderables[0].transform.rotation), 0.1f);
+			ImGui::DragFloat3("Scale", glm::value_ptr(renderables[0].transform.scale), 0.1f);
+		}
+
+		if (ImGui::CollapsingHeader("Material"))
+		{
+			ImGui::ColorEdit3("Albedo", glm::value_ptr(renderables[0].material.albedo));
+			ImGui::SliderFloat("Metallic", &renderables[0].material.metallic, 0.0f, 1.0f);
+			ImGui::SliderFloat("Roughness", &renderables[0].material.roughness, 0.0f, 1.0f);
+			ImGui::SliderFloat("AO", &renderables[0].material.ao, 0.0f, 1.0f);
+		}
+
+		ImGui::End();
+	}
+
+	{
+		ImGui::Begin("Global Properties");
+		ImGui::ColorEdit3("Clear Color", glm::value_ptr(clear_color));
+		ImGui::End();
+	}
+
+	ImGui::Render();
+
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Renderer::draw()
 {
-	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClearColor(clear_color.r, clear_color.g, clear_color.b, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	default_shader.use();
@@ -32,6 +74,8 @@ void Renderer::draw()
 	{
 		renderable.draw(default_shader);
 	}
+
+	draw_imgui();
 
 	glfwSwapBuffers(window);
 	glfwPollEvents();
@@ -90,4 +134,26 @@ void Renderer::init_scene()
 
 	Model sphere("color_sphere.json", mesh_dict, texture_dict);
 	renderables.push_back(sphere);
+}
+
+void Renderer::init_imgui()
+{
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+
+	ImGui::StyleColorsDark();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
+	global_deletion.push_function([=]() {
+		ImGui_ImplOpenGL3_Shutdown();
+		ImGui_ImplGlfw_Shutdown();
+		ImGui::DestroyContext();
+		});
+
 }
