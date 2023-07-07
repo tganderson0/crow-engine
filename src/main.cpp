@@ -25,6 +25,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 const uint32_t SCR_WIDTH = 800;
 const uint32_t SCR_HEIGHT = 600;
+const int MAX_FRAMES_IN_FLIGHT = 2;
 const VkDebugUtilsMessageSeverityFlagBitsEXT DEBUG_SEVERITY = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT;
 
 const static std::string AppName = "Vulkan Engine";
@@ -66,8 +67,14 @@ private:
 	void initWindow() {
 		glfwInit();
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Vulkan", nullptr, nullptr);
+		glfwSetWindowUserPointer(window, this);
+		glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	}
+
+	static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+		auto app = reinterpret_cast<HelloTriangleApplication*>(glfwGetWindowUserPointer(window));
+		app->framebufferResized = true;
 	}
 
 	void initVulkan() {
@@ -77,33 +84,42 @@ private:
 		pickPhysicalDevice();
 		createLogicalDevice();
 		createSwapchain();
+		createImageViews();
 		createDepthBuffer();
 		createRenderPass();
 		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandPool();
+		createCommandBuffers();
+		createSyncObjects();
 	}
 
 	void mainLoop() {
 		while (!glfwWindowShouldClose(window)) {
 			glfwPollEvents();
+			drawFrame();
 		}
 	}
 
 	void cleanup() {
-		device.destroyPipelineLayout(pipelineLayout);
-		device.destroyRenderPass(renderPass);
-		
 
-		for (auto& imageView : imageViews)
-		{
-			device.destroyImageView(imageView);
+		device.waitIdle();
+
+		cleanupSwapChain();
+
+		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			device.destroySemaphore(renderFinishedSemaphores[i]);
+			device.destroySemaphore(imageAvailableSemaphores[i]);
+			device.destroyFence(inFlightFences[i]);
 		}
+
+		device.destroyCommandPool(commandPool);
 
 		// cleanup depth view
 		device.destroyImageView(depthView);
 		device.freeMemory(depthMemory);
 		device.destroyImage(depthImage);
 
-		device.destroySwapchainKHR(swapChain);
 		instance.destroySurfaceKHR(surface);
 
 		device.destroy();
@@ -349,14 +365,6 @@ private:
 
 		swapChain = device.createSwapchainKHR(swapChainCreateInfo);
 		swapchainImages = device.getSwapchainImagesKHR(swapChain);
-		imageViews.reserve(swapchainImages.size());
-		vk::ImageViewCreateInfo imageViewCreateInfo({}, {}, vk::ImageViewType::e2D, format, {}, { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 });
-		for (auto image : swapchainImages)
-		{
-			imageViewCreateInfo.image = image;
-			imageViews.push_back(device.createImageView(imageViewCreateInfo));
-		}
-
 		swapChainImageFormat = format;
 	}
 
@@ -562,6 +570,236 @@ private:
 		renderPass = device.createRenderPass(renderPassInfo);
 	}
 
+	void createFramebuffers() {
+		swapChainFramebuffers.resize(imageViews.size());
+		for (size_t i = 0; i < imageViews.size(); i++)
+		{
+			vk::ImageView attachments[] = {
+				imageViews[i]
+			};
+
+			vk::FramebufferCreateInfo framebufferInfo = {};
+			framebufferInfo.renderPass = renderPass;
+			framebufferInfo.attachmentCount = 1;
+			framebufferInfo.pAttachments = attachments;
+			framebufferInfo.width = extent.width;
+			framebufferInfo.height = extent.height;
+			framebufferInfo.layers = 1;
+
+			try {
+				swapChainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
+			}
+			catch (vk::SystemError err) {
+				throw std::runtime_error("failed to create framebuffer!");
+			}
+		}
+	}
+
+	void createCommandPool() {
+		QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
+
+		vk::CommandPoolCreateInfo poolInfo = {};
+		poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+
+		try {
+			commandPool = device.createCommandPool(poolInfo);
+		}
+		catch (vk::SystemError err) {
+			throw std::runtime_error("failed to create command pool!");
+		}
+	}
+
+	void createCommandBuffers() {
+		commandBuffers.resize(swapChainFramebuffers.size());
+
+		vk::CommandBufferAllocateInfo allocInfo = {};
+		allocInfo.commandPool = commandPool;
+		allocInfo.level = vk::CommandBufferLevel::ePrimary;
+		allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
+
+		try {
+			commandBuffers = device.allocateCommandBuffers(allocInfo);
+		}
+		catch (vk::SystemError err) {
+			throw std::runtime_error("failed to allocated a command buffer!");
+		}
+
+		for (size_t i = 0; i < commandBuffers.size(); i++) {
+			vk::CommandBufferBeginInfo beginInfo = {};
+			beginInfo.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;
+
+			try {
+				commandBuffers[i].begin(beginInfo);
+			}
+			catch (vk::SystemError err) {
+				throw std::runtime_error("failed to begin recording command buffer!");
+			}
+
+			vk::RenderPassBeginInfo renderPassInfo = {};
+			renderPassInfo.renderPass = renderPass;
+			renderPassInfo.framebuffer = swapChainFramebuffers[i];
+			renderPassInfo.renderArea.offset = vk::Offset2D(0, 0);
+			renderPassInfo.renderArea.extent = extent;
+
+			vk::ClearValue clearColor = { std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 1.0f } };
+			renderPassInfo.clearValueCount = 1;
+			renderPassInfo.pClearValues = &clearColor;
+
+			commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+			commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+			commandBuffers[i].draw(3, 1, 0, 0);
+			commandBuffers[i].endRenderPass();
+
+			try {
+				commandBuffers[i].end();
+			}
+			catch (vk::SystemError err) {
+				throw std::runtime_error("failed to record commad bbuffer!");
+			}
+		}
+
+	}
+
+	void drawFrame() {
+		device.waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+
+		uint32_t imageIndex;
+		vk::ResultValue result = device.acquireNextImageKHR(swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], nullptr);
+
+		if (result.result == vk::Result::eErrorOutOfDateKHR || result.result == vk::Result::eSuboptimalKHR || framebufferResized)
+		{
+			framebufferResized = false;
+			recreateSwapChain();
+			return;
+		}
+
+		imageIndex = result.value;
+
+		vk::SubmitInfo submitInfo = {};
+
+		vk::Semaphore waitSemaphores[] = { imageAvailableSemaphores[currentFrame] };
+		vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+		submitInfo.waitSemaphoreCount = 1;
+		submitInfo.pWaitSemaphores = waitSemaphores;
+		submitInfo.pWaitDstStageMask = waitStages;
+
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
+
+		vk::Semaphore signalSemaphores[] = { renderFinishedSemaphores[currentFrame] };
+		submitInfo.signalSemaphoreCount = 1;
+		submitInfo.pSignalSemaphores = signalSemaphores;
+
+		device.resetFences(1, &inFlightFences[currentFrame]);
+
+		try {
+			graphicsQueue.submit(submitInfo, inFlightFences[currentFrame]);
+		}
+		catch (vk::SystemError err) {
+			throw std::runtime_error("failed to submit draw command buffer!");
+		}
+
+		vk::PresentInfoKHR presentInfo = {};
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = signalSemaphores;
+
+		vk::SwapchainKHR swapChains[] = { swapChain };
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = swapChains;
+		presentInfo.pImageIndices = &imageIndex;
+		presentInfo.pResults = nullptr;
+
+		vk::Result resultPresent = presentQueue.presentKHR(presentInfo);
+		
+		if (resultPresent == vk::Result::eSuboptimalKHR || resultPresent == vk::Result::eSuboptimalKHR || framebufferResized) {
+			framebufferResized = false;
+			recreateSwapChain();
+			return;
+		}
+
+		currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+	}
+
+	void createSyncObjects() {
+		imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+		inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
+		try {
+			for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+				imageAvailableSemaphores[i] = device.createSemaphore({});
+				renderFinishedSemaphores[i] = device.createSemaphore({});
+				inFlightFences[i] = device.createFence({ vk::FenceCreateFlagBits::eSignaled });
+			}
+		}
+		catch (vk::SystemError err) {
+			throw std::runtime_error("failed to create synchronization objects for a frame!");
+		}
+	}
+
+	void createImageViews() {
+		imageViews.resize(swapchainImages.size());
+
+		for (size_t i = 0; i < swapchainImages.size(); i++) {
+			vk::ImageViewCreateInfo createInfo = {};
+			createInfo.image = swapchainImages[i];
+			createInfo.viewType = vk::ImageViewType::e2D;
+			createInfo.format = swapChainImageFormat;
+			createInfo.components.r = vk::ComponentSwizzle::eIdentity;
+			createInfo.components.g = vk::ComponentSwizzle::eIdentity;
+			createInfo.components.b = vk::ComponentSwizzle::eIdentity;
+			createInfo.components.a = vk::ComponentSwizzle::eIdentity;
+			createInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+			createInfo.subresourceRange.baseMipLevel = 0;
+			createInfo.subresourceRange.levelCount = 1;
+			createInfo.subresourceRange.baseArrayLayer = 0;
+			createInfo.subresourceRange.layerCount = 1;
+
+			try {
+				imageViews[i] = device.createImageView(createInfo);
+			}
+			catch (vk::SystemError err) {
+				throw std::runtime_error("failed to create image views!");
+			}
+		}
+	}
+
+	void cleanupSwapChain() {
+		for (auto& framebuffer : swapChainFramebuffers) {
+			device.destroyFramebuffer(framebuffer);
+		}
+
+		device.freeCommandBuffers(commandPool, commandBuffers);
+		device.destroyPipeline(graphicsPipeline);
+		device.destroyPipelineLayout(pipelineLayout);
+		device.destroyRenderPass(renderPass);
+
+		for (auto imageView : imageViews) {
+			device.destroyImageView(imageView);
+		}
+
+		device.destroySwapchainKHR(swapChain);
+	}
+
+	void recreateSwapChain() {
+		int width = 0, height = 0;
+		while (width == 0 || height == 0) {
+			glfwGetFramebufferSize(window, &width, &height);
+			glfwWaitEvents();
+		}
+
+		device.waitIdle();
+
+		cleanupSwapChain();
+
+		createSwapchain();
+		createImageViews();
+		createRenderPass();
+		createGraphicsPipeline();
+		createFramebuffers();
+		createCommandBuffers();
+	}
+
 public:
 	GLFWwindow* window;
 private:
@@ -586,6 +824,16 @@ private:
 	vk::RenderPass renderPass;
 	vk::Format swapChainImageFormat;
 	vk::Pipeline graphicsPipeline;
+	std::vector<vk::Framebuffer> swapChainFramebuffers;
+	vk::CommandPool commandPool;
+	std::vector<vk::CommandBuffer, std::allocator<vk::CommandBuffer>> commandBuffers;
+
+	std::vector<vk::Semaphore> imageAvailableSemaphores;
+	std::vector<vk::Semaphore> renderFinishedSemaphores;
+	std::vector<vk::Fence> inFlightFences;
+	size_t currentFrame = 0;
+
+	bool framebufferResized = false;
 };
 
 int main()
