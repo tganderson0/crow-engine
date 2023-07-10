@@ -865,35 +865,82 @@ private:
 	}
 
 	void createVertexBuffer() {
+		vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+		vk::Buffer stagingBuffer;
+		vk::DeviceMemory stagingBufferMemory;
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+
+		void* data = device.mapMemory(stagingBufferMemory, 0, bufferSize);
+		memcpy(data, vertices.data(), (size_t)bufferSize);
+		device.unmapMemory(stagingBufferMemory);
+
+		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
+
+		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+		device.destroyBuffer(stagingBuffer);
+		device.freeMemory(stagingBufferMemory);
+	}
+
+	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) {
+		vk::CommandBufferAllocateInfo allocInfo = {};
+		allocInfo.level = vk::CommandBufferLevel::ePrimary;
+		allocInfo.commandPool = commandPool;
+		allocInfo.commandBufferCount = 1;
+
+		vk::CommandBuffer commandBuffer = device.allocateCommandBuffers(allocInfo)[0];
+
+		vk::CommandBufferBeginInfo beginInfo = {};
+		beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+
+		commandBuffer.begin(beginInfo);
+
+		vk::BufferCopy copyRegion = {};
+		copyRegion.srcOffset = 0; // Optional
+		copyRegion.dstOffset = 0; // Optional
+		copyRegion.size = size;
+		commandBuffer.copyBuffer(srcBuffer, dstBuffer, copyRegion);
+
+		commandBuffer.end();
+
+		vk::SubmitInfo submitInfo = {};
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		graphicsQueue.submit(submitInfo, nullptr);
+		graphicsQueue.waitIdle();
+
+		device.freeCommandBuffers(commandPool, commandBuffer);
+	}
+
+	void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
 		vk::BufferCreateInfo bufferInfo = {};
-		bufferInfo.size = sizeof(vertices[0]) * vertices.size();
-		bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
 		bufferInfo.sharingMode = vk::SharingMode::eExclusive;
-		
+
 		try {
-			vertexBuffer = device.createBuffer(bufferInfo);
+			buffer = device.createBuffer(bufferInfo);
 		}
 		catch (vk::SystemError err) {
-			throw std::runtime_error("failed to create vertex buffer!");
+			throw std::runtime_error("failed to create buffer!");
 		}
 
-		vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(vertexBuffer);
+		vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
 
 		vk::MemoryAllocateInfo allocInfo = {};
 		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
 		try {
-			vertexBufferMemory = device.allocateMemory(allocInfo);
+			bufferMemory = device.allocateMemory(allocInfo);
 		}
 		catch (vk::SystemError err) {
-			throw std::runtime_error("failed to allocate vertex buffer memory!");
+			throw std::runtime_error("failed to allocate buffer memory!");
 		}
 
-		device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-		void* data = device.mapMemory(vertexBufferMemory, 0, bufferInfo.size);
-		memcpy(data, vertices.data(), static_cast<size_t>(bufferInfo.size));
-		device.unmapMemory(vertexBufferMemory);
+		device.bindBufferMemory(buffer, bufferMemory, 0);
 	}
 
 public:
