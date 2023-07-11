@@ -10,6 +10,9 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
+
 #include <iostream>
 #include <stdexcept>
 #include <cstdlib>
@@ -48,6 +51,11 @@ struct QueueFamilyIndices {
 	}
 };
 
+struct AllocatedBuffer {
+	vk::Buffer buffer;
+	VmaAllocation allocation;
+};
+
 #ifdef NDEBUG
 const bool enableValidationLayers = false;
 #else
@@ -55,8 +63,9 @@ const bool enableValidationLayers = true;
 #endif
 
 struct Vertex {
-	glm::vec2 pos;
+	glm::vec3 pos;
 	glm::vec3 color;
+	glm::vec3 normal;
 
 	static vk::VertexInputBindingDescription getBindingDescription() {
 		vk::VertexInputBindingDescription bindingDescription = {};
@@ -67,11 +76,11 @@ struct Vertex {
 		return bindingDescription;
 	}
 
-	static std::array<vk::VertexInputAttributeDescription, 2> getAttributeDescriptions() {
-		std::array<vk::VertexInputAttributeDescription, 2> attributeDescriptions = {};
+	static std::array<vk::VertexInputAttributeDescription, 3> getAttributeDescriptions() {
+		std::array<vk::VertexInputAttributeDescription, 3> attributeDescriptions = {};
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
-		attributeDescriptions[0].format = vk::Format::eR32G32Sfloat;
+		attributeDescriptions[0].format = vk::Format::eR32G32B32Sfloat;
 		attributeDescriptions[0].offset = offsetof(Vertex, pos);
 
 		attributeDescriptions[1].binding = 0;
@@ -79,15 +88,25 @@ struct Vertex {
 		attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
 
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = vk::Format::eR32G32B32Sfloat;
+		attributeDescriptions[2].offset = offsetof(Vertex, normal);
+
 		return attributeDescriptions;
 	}
 };
 
-const std::vector<Vertex> vertices = {
-	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+struct Mesh {
+	std::vector<Vertex> vertices;
+	AllocatedBuffer vertexBuffer;
 };
+
+//const std::vector<Vertex> vertices = {
+//	{{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f},},
+//	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+//	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+//};
 
 class HelloTriangleApplication {
 public:
@@ -125,9 +144,16 @@ private:
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
-		createVertexBuffer();
 		createCommandBuffers();
 		createSyncObjects();
+
+		VmaAllocatorCreateInfo allocatorInfo = {};
+		allocatorInfo.physicalDevice = physicalDevice;
+		allocatorInfo.device = device;
+		allocatorInfo.instance = instance;
+		vmaCreateAllocator(&allocatorInfo, &allocator);
+
+		loadMeshes();
 	}
 
 	void mainLoop() {
@@ -143,8 +169,8 @@ private:
 
 		cleanupSwapChain();
 
-		device.destroyBuffer(vertexBuffer);
-		device.freeMemory(vertexBufferMemory);
+		// Cleanup mesh
+		vmaDestroyBuffer(allocator, triangleMesh.vertexBuffer.buffer, triangleMesh.vertexBuffer.allocation);
 
 		for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 			device.destroySemaphore(renderFinishedSemaphores[i]);
@@ -492,12 +518,10 @@ private:
 			vk::PipelineShaderStageCreateInfo(vk::PipelineShaderStageCreateFlags(), vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main")
 		};
 
-		vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-
 		auto bindingDescription = Vertex::getBindingDescription();
 		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
+		vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
 
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
 		vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
@@ -695,11 +719,11 @@ private:
 			commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 			commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 
-			vk::Buffer vertexBuffers[] = { vertexBuffer };
 			vk::DeviceSize offsets[] = { 0 };
+			vk::Buffer vertexBuffers[] = { triangleMesh.vertexBuffer.buffer };
 			commandBuffers[i].bindVertexBuffers(0, 1, vertexBuffers, offsets);
 
-			commandBuffers[i].draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+			commandBuffers[i].draw(static_cast<uint32_t>(triangleMesh.vertices.size()), 1, 0, 0);
 			commandBuffers[i].endRenderPass();
 
 			try {
@@ -864,83 +888,36 @@ private:
 		throw std::runtime_error("failed to find suitable memory type!");
 	}
 
-	void createVertexBuffer() {
-		vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	void loadMeshes() {
+		triangleMesh.vertices.resize(3);
 
-		vk::Buffer stagingBuffer;
-		vk::DeviceMemory stagingBufferMemory;
-		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, stagingBuffer, stagingBufferMemory);
+		//vertex positions
+		triangleMesh.vertices[0].pos = { 1.f, 1.f, 0.0f };
+		triangleMesh.vertices[1].pos = { -1.f, 1.f, 0.0f };
+		triangleMesh.vertices[2].pos = { 0.f,-1.f, 0.0f };
 
-		void* data = device.mapMemory(stagingBufferMemory, 0, bufferSize);
-		memcpy(data, vertices.data(), (size_t)bufferSize);
-		device.unmapMemory(stagingBufferMemory);
+		//vertex colors, all green
+		triangleMesh.vertices[0].color = { 0.f, 1.f, 0.0f }; //pure green
+		triangleMesh.vertices[1].color = { 0.f, 1.f, 0.0f }; //pure green
+		triangleMesh.vertices[2].color = { 0.f, 1.f, 0.0f }; //pure green
 
-		createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer, vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
-
-		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-
-		device.destroyBuffer(stagingBuffer);
-		device.freeMemory(stagingBufferMemory);
+		uploadMesh(triangleMesh);
 	}
 
-	void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size) {
-		vk::CommandBufferAllocateInfo allocInfo = {};
-		allocInfo.level = vk::CommandBufferLevel::ePrimary;
-		allocInfo.commandPool = commandPool;
-		allocInfo.commandBufferCount = 1;
-
-		vk::CommandBuffer commandBuffer = device.allocateCommandBuffers(allocInfo)[0];
-
-		vk::CommandBufferBeginInfo beginInfo = {};
-		beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
-
-		commandBuffer.begin(beginInfo);
-
-		vk::BufferCopy copyRegion = {};
-		copyRegion.srcOffset = 0; // Optional
-		copyRegion.dstOffset = 0; // Optional
-		copyRegion.size = size;
-		commandBuffer.copyBuffer(srcBuffer, dstBuffer, copyRegion);
-
-		commandBuffer.end();
-
-		vk::SubmitInfo submitInfo = {};
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &commandBuffer;
-
-		graphicsQueue.submit(submitInfo, nullptr);
-		graphicsQueue.waitIdle();
-
-		device.freeCommandBuffers(commandPool, commandBuffer);
-	}
-
-	void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) {
+	void uploadMesh(Mesh& mesh) {
 		vk::BufferCreateInfo bufferInfo = {};
-		bufferInfo.size = size;
-		bufferInfo.usage = usage;
-		bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+		bufferInfo.size = mesh.vertices.size() * sizeof(Vertex);
+		bufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
 
-		try {
-			buffer = device.createBuffer(bufferInfo);
-		}
-		catch (vk::SystemError err) {
-			throw std::runtime_error("failed to create buffer!");
-		}
+		VmaAllocationCreateInfo vmaallocInfo = {};
+		vmaallocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+		vmaCreateBuffer(allocator, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &vmaallocInfo, reinterpret_cast<VkBuffer*>(& mesh.vertexBuffer.buffer), &mesh.vertexBuffer.allocation, nullptr);
 
-		vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
-
-		vk::MemoryAllocateInfo allocInfo = {};
-		allocInfo.allocationSize = memRequirements.size;
-		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
-
-		try {
-			bufferMemory = device.allocateMemory(allocInfo);
-		}
-		catch (vk::SystemError err) {
-			throw std::runtime_error("failed to allocate buffer memory!");
-		}
-
-		device.bindBufferMemory(buffer, bufferMemory, 0);
+		// Copy vertex data
+		void* data;
+		vmaMapMemory(allocator, mesh.vertexBuffer.allocation, &data);
+		memcpy(data, mesh.vertices.data(), mesh.vertices.size() * sizeof(Vertex));
+		vmaUnmapMemory(allocator, mesh.vertexBuffer.allocation);
 	}
 
 public:
@@ -966,7 +943,9 @@ private:
 	vk::PipelineLayout pipelineLayout;
 	vk::RenderPass renderPass;
 	vk::Format swapChainImageFormat;
-	vk::Pipeline graphicsPipeline;
+
+	vk::Pipeline graphicsPipeline; // mesh pipeline
+	
 	std::vector<vk::Framebuffer> swapChainFramebuffers;
 	vk::CommandPool commandPool;
 	std::vector<vk::CommandBuffer, std::allocator<vk::CommandBuffer>> commandBuffers;
@@ -976,10 +955,12 @@ private:
 	std::vector<vk::Fence> inFlightFences;
 	size_t currentFrame = 0;
 
-	vk::Buffer vertexBuffer;
-	vk::DeviceMemory vertexBufferMemory;
+	VmaAllocator allocator;
 
 	bool framebufferResized = false;
+
+	// OBJECTS
+	Mesh triangleMesh;
 };
 
 int main()
