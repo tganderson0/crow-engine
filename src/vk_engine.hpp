@@ -1,8 +1,35 @@
 #pragma once
 
 #include "vk_types.hpp"
+#include "vk_mesh.hpp"
 
 #include <vector>
+#include <functional>
+#include <deque>
+#include <glm/glm.hpp>
+
+struct MeshPushConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
+
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function) {
+		deletors.push_back(function);
+	}
+
+	void flush() {
+		// reverse iterate the deletion queue to execute all the functions
+		for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+			(*it)(); //call the function
+		}
+
+		deletors.clear();
+	}
+};
 
 class VulkanEngine {
 public:
@@ -41,6 +68,25 @@ public:
 	// Pipelines
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
+	VkPipeline _redTrianglePipeline;
+	int _selectedShader{ 0 };
+	VkPipeline _meshPipeline;
+	VkPipelineLayout _meshPipelineLayout;
+
+	// Cleanup Queue
+	DeletionQueue _mainDeletionQueue;
+
+	// VMA
+	VmaAllocator _allocator;
+
+	// Meshes
+	Mesh _triangleMesh;
+	Mesh _monkeyMesh;
+
+	// Depth Buffer
+	VkImageView _depthImageView;
+	AllocatedImage _depthImage;
+	VkFormat _depthFormat;
 
 public:
 	void init();
@@ -57,6 +103,8 @@ private:
 	void init_sync_structures();
 	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
 	void init_pipelines();
+	void load_meshes();
+	void upload_mesh(Mesh& mesh);
 };
 
 class PipelineBuilder {
@@ -70,6 +118,7 @@ public:
 	VkPipelineColorBlendAttachmentState _colorBlendAttachment;
 	VkPipelineMultisampleStateCreateInfo _multisampling;
 	VkPipelineLayout _pipelineLayout;
+	VkPipelineDepthStencilStateCreateInfo _depthStencil;
 
 public:
 	VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
