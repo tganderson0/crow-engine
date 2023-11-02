@@ -1,145 +1,209 @@
 #pragma once
-#include "vk_types.hpp"
-#include "swapchain.hpp"
 
-const uint32_t WIDTH = 1700;
-const uint32_t HEIGHT = 600;
+#include "vk_types.hpp"
+#include "vk_mesh.hpp"
+
+#include <vector>
+#include <functional>
+#include <deque>
+#include <glm/glm.hpp>
+#include <unordered_map>
+
+struct DeletionQueue
+{
+	std::deque<std::function<void()>> deletors;
+
+	void push_function(std::function<void()>&& function) {
+		deletors.push_back(function);
+	}
+
+	void flush() {
+		// reverse iterate the deletion queue to execute all the functions
+		for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+			(*it)(); //call the function
+		}
+
+		deletors.clear();
+	}
+};
+
+struct GPUSceneData {
+	glm::vec4 fogColor; // w is for exponent
+	glm::vec4 fogDistances; //x for min, y for max, zw unused.
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; //w for sun power
+	glm::vec4 sunlightColor;
+};
+
+struct GPUCameraData {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+};
+
+struct GPUObjectData {
+	glm::mat4 modelMatrix;
+};
+
+struct FrameData {
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+
+	DeletionQueue _frameDeletionQueue;
+
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+
+	AllocatedBuffer cameraBuffer;
+	VkDescriptorSet globalDescriptor;
+
+	AllocatedBuffer objectBuffer;
+	VkDescriptorSet objectDescriptor;
+};
+
+struct MeshPushConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
+
+
+struct Material {
+	VkDescriptorSet textureSet{ VK_NULL_HANDLE }; //texture defaulted to null
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
+};
+
+
+struct RenderObject {
+	Mesh* mesh;
+
+	Material* material;
+
+	glm::mat4 transformMatrix;
+};
+
+struct UploadContext {
+	VkFence _uploadFence;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _commandBuffer;
+};
+
+struct Texture {
+	AllocatedImage image;
+	VkImageView imageView;
+};
+
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 public:
-    void run();
-    bool framebufferResized = false;
-private:
-    GLFWwindow* window;
+	bool _isInitialized{ false };
+	int _frameNumber{ 0 };
+	VkExtent2D _windowExtent{ 1700, 900 };
+	struct GLFWwindow* _window{ nullptr };
 
-    VkInstance instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
-    VkSurfaceKHR surface;
+	// Basic setup/device
+	VkInstance _instance;
+	VkDebugUtilsMessengerEXT _debug_messenger;
+	VkPhysicalDevice _chosenGPU;
+	VkDevice _device;
+	VkSurfaceKHR _surface;
 
-    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-    VkDevice device;
+	// Swapchain Members
+	VkSwapchainKHR _swapchain;
+	VkFormat _swapchainImageFormat;
+	std::vector<VkImage> _swapchainImages;
+	std::vector<VkImageView> _swapchainImageViews;
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+	// Graphics Queue and Commands
+	VkQueue _graphicsQueue;
+	uint32_t _graphicsQueueFamily;
 
-    VkRenderPass renderPass;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+	// Renderpass and Framebuffers
+	VkRenderPass _renderPass;
+	std::vector<VkFramebuffer> _framebuffers;
 
-    VkCommandPool commandPool;
+	// Cleanup Queue
+	DeletionQueue _mainDeletionQueue;
 
-    CrowEngine::SwapChain::SwapChain swapChain;
+	// VMA
+	VmaAllocator _allocator;
 
-    uint32_t mipLevels;
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+	// Depth Buffer
+	VkImageView _depthImageView;
+	AllocatedImage _depthImage;
+	VkFormat _depthFormat;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+	// Renderable Objects
+	std::vector<RenderObject> _renderables;
+	std::unordered_map<std::string, Material> _materials;
+	std::unordered_map<std::string, Mesh> _meshes;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void*> uniformBuffersMapped;
+	// Textures
+	std::unordered_map<std::string, Texture> _loadedTextures;
 
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
+	//frame storage
+	FrameData _frames[FRAME_OVERLAP];
 
-    std::vector<VkCommandBuffer> commandBuffers;
+	// Descriptor Sets
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorSetLayout _objectSetLayout;
+	VkDescriptorSetLayout _singleTextureSetLayout;
+	VkDescriptorPool _descriptorPool;
 
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    uint32_t currentFrame = 0;
-
-	void init();
+	// GPU Data
+	VkPhysicalDeviceProperties _gpuProperties;
 	
+	// Scene Data
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
+
+	// Mesh copying
+	UploadContext _uploadContext;
+
+public:
+	void init();
 	void cleanup();
-
 	void draw();
+	void run();
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
-    void mainLoop();
+private:
+	void init_vulkan();
+	void init_swapchain();
+	void init_commands();
+	void init_default_renderpass();
+	void init_framebuffers();
+	void init_sync_structures();
+	bool load_shader_module(const char* filePath, VkShaderModule* outShaderModule);
+	void init_pipelines();
+	void load_meshes();
+	void upload_mesh(Mesh& mesh);
+	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+	Material* get_material(const std::string& name);
+	Mesh* get_mesh(const std::string& name);
+	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+	void init_scene();
+	FrameData& get_current_frame();
+	void init_descriptors();
+	size_t pad_uniform_buffer_size(size_t originalSize);
+	void load_images();
+};
 
-    void initWindow();
+class PipelineBuilder {
+public:
+	std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
+	VkPipelineVertexInputStateCreateInfo _vertexInputInfo;
+	VkPipelineInputAssemblyStateCreateInfo _inputAssembly;
+	VkViewport _viewport;
+	VkRect2D _scissor;
+	VkPipelineRasterizationStateCreateInfo _rasterizer;
+	VkPipelineColorBlendAttachmentState _colorBlendAttachment;
+	VkPipelineMultisampleStateCreateInfo _multisampling;
+	VkPipelineLayout _pipelineLayout;
+	VkPipelineDepthStencilStateCreateInfo _depthStencil;
 
-    void createInstance();
-
-    void setupDebugMessenger();
-
-    void createSurface();
-
-    void pickPhysicalDevice();
-
-    void createLogicalDevice();
-
-    void createRenderPass();
-
-    void createDescriptorSetLayout();
-
-    void createGraphicsPipeline();
-
-    void createCommandPool();
-
-    void hasStencilComponent(VkFormat format);
-
-    void createTextureImage();
-
-    void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
-    VkSampleCountFlagBits getMaxUsableSampleCount;
-
-    void createTextureImageView();
-
-    void createTextureSampler();
-
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
-
-    void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-    void loadModel();
-
-    void createVertexBuffer();
-
-    void createIndexBuffer();
-
-    void createUniformBuffers();
-
-    void createDescriptorPool();
-
-    void createDescriptorSets();
-
-    VkCommandBuffer beginSingleTimeCommands();
-
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer);
-
-    void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
-
-    void createCommandBuffers();
-
-    void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
-    void createSyncObject();
-
-    void updateUniformBuffer(uint32_t currentImage);
-
-    VkShaderModule createShaderModule(const std::vector<char>& code);
-
-    bool isDeviceSuitable(VkPhysicalDevice device);
-
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device);
-
-    std::vector<const char*> getRequiredExtensions();
-
-    bool checkValidationLayerSupport();
-
-    static std::vector<char> readFile(const std::string& filename);
-
-    void createSyncObjects();
+public:
+	VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
 };
