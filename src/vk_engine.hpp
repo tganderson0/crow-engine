@@ -9,11 +9,6 @@
 #include <glm/glm.hpp>
 #include <unordered_map>
 
-struct MeshPushConstants {
-	glm::vec4 data;
-	glm::mat4 render_matrix;
-};
-
 struct DeletionQueue
 {
 	std::deque<std::function<void()>> deletors;
@@ -32,6 +27,45 @@ struct DeletionQueue
 	}
 };
 
+struct GPUSceneData {
+	glm::vec4 fogColor; // w is for exponent
+	glm::vec4 fogDistances; //x for min, y for max, zw unused.
+	glm::vec4 ambientColor;
+	glm::vec4 sunlightDirection; //w for sun power
+	glm::vec4 sunlightColor;
+};
+
+struct GPUCameraData {
+	glm::mat4 view;
+	glm::mat4 proj;
+	glm::mat4 viewproj;
+};
+
+struct GPUObjectData {
+	glm::mat4 modelMatrix;
+};
+
+struct FrameData {
+	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+
+	DeletionQueue _frameDeletionQueue;
+
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+
+	AllocatedBuffer cameraBuffer;
+	VkDescriptorSet globalDescriptor;
+
+	AllocatedBuffer objectBuffer;
+	VkDescriptorSet objectDescriptor;
+};
+
+struct MeshPushConstants {
+	glm::vec4 data;
+	glm::mat4 render_matrix;
+};
+
 //note that we store the VkPipeline and layout by value, not pointer.
 //They are 64 bit handles to internal driver structures anyway so storing pointers to them isn't very useful
 struct Material {
@@ -46,6 +80,8 @@ struct RenderObject {
 
 	glm::mat4 transformMatrix;
 };
+
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 public:
@@ -70,16 +106,10 @@ public:
 	// Graphics Queue and Commands
 	VkQueue _graphicsQueue;
 	uint32_t _graphicsQueueFamily;
-	VkCommandPool _commandPool;
-	VkCommandBuffer _mainCommandBuffer;
 
 	// Renderpass and Framebuffers
 	VkRenderPass _renderPass;
 	std::vector<VkFramebuffer> _framebuffers;
-
-	// Semaphores and Fences
-	VkSemaphore _presentSemaphore, _renderSemaphore;
-	VkFence _renderFence;
 
 	// Cleanup Queue
 	DeletionQueue _mainDeletionQueue;
@@ -96,6 +126,21 @@ public:
 	std::vector<RenderObject> _renderables;
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
+
+	//frame storage
+	FrameData _frames[FRAME_OVERLAP];
+
+	// Descriptor Sets
+	VkDescriptorSetLayout _globalSetLayout;
+	VkDescriptorSetLayout _objectSetLayout;
+	VkDescriptorPool _descriptorPool;
+
+	// GPU Data
+	VkPhysicalDeviceProperties _gpuProperties;
+	
+	// Scene Data
+	GPUSceneData _sceneParameters;
+	AllocatedBuffer _sceneParameterBuffer;
 
 public:
 	void init();
@@ -114,20 +159,15 @@ private:
 	void init_pipelines();
 	void load_meshes();
 	void upload_mesh(Mesh& mesh);
-
-	//create material and add it to the map
 	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
-
-	//returns nullptr if it can't be found
 	Material* get_material(const std::string& name);
-
-	//returns nullptr if it can't be found
 	Mesh* get_mesh(const std::string& name);
-
-	//our draw function
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
-
 	void init_scene();
+	FrameData& get_current_frame();
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void init_descriptors();
+	size_t pad_uniform_buffer_size(size_t originalSize);
 };
 
 class PipelineBuilder {
