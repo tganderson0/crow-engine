@@ -7,6 +7,7 @@
 #include <functional>
 #include <deque>
 #include <glm/glm.hpp>
+#include <unordered_map>
 
 struct MeshPushConstants {
 	glm::vec4 data;
@@ -29,6 +30,21 @@ struct DeletionQueue
 
 		deletors.clear();
 	}
+};
+
+//note that we store the VkPipeline and layout by value, not pointer.
+//They are 64 bit handles to internal driver structures anyway so storing pointers to them isn't very useful
+struct Material {
+	VkPipeline pipeline;
+	VkPipelineLayout pipelineLayout;
+};
+
+struct RenderObject {
+	Mesh* mesh;
+
+	Material* material;
+
+	glm::mat4 transformMatrix;
 };
 
 class VulkanEngine {
@@ -79,14 +95,18 @@ public:
 	// VMA
 	VmaAllocator _allocator;
 
-	// Meshes
-	Mesh _triangleMesh;
-	Mesh _monkeyMesh;
-
 	// Depth Buffer
 	VkImageView _depthImageView;
 	AllocatedImage _depthImage;
 	VkFormat _depthFormat;
+
+	// Renderable Objects
+	std::vector<RenderObject> _renderables;
+
+	std::unordered_map<std::string, Material> _materials;
+	std::unordered_map<std::string, Mesh> _meshes;
+	Mesh _triangleMesh;
+	Mesh _monkeyMesh;
 
 public:
 	void init();
@@ -105,6 +125,20 @@ private:
 	void init_pipelines();
 	void load_meshes();
 	void upload_mesh(Mesh& mesh);
+
+	//create material and add it to the map
+	Material* create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+
+	//returns nullptr if it can't be found
+	Material* get_material(const std::string& name);
+
+	//returns nullptr if it can't be found
+	Mesh* get_mesh(const std::string& name);
+
+	//our draw function
+	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+
+	void init_scene();
 };
 
 class PipelineBuilder {
