@@ -66,12 +66,13 @@ struct MeshPushConstants {
 	glm::mat4 render_matrix;
 };
 
-//note that we store the VkPipeline and layout by value, not pointer.
-//They are 64 bit handles to internal driver structures anyway so storing pointers to them isn't very useful
+
 struct Material {
+	VkDescriptorSet textureSet{ VK_NULL_HANDLE }; //texture defaulted to null
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
 };
+
 
 struct RenderObject {
 	Mesh* mesh;
@@ -79,6 +80,17 @@ struct RenderObject {
 	Material* material;
 
 	glm::mat4 transformMatrix;
+};
+
+struct UploadContext {
+	VkFence _uploadFence;
+	VkCommandPool _commandPool;
+	VkCommandBuffer _commandBuffer;
+};
+
+struct Texture {
+	AllocatedImage image;
+	VkImageView imageView;
 };
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -127,12 +139,16 @@ public:
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
 
+	// Textures
+	std::unordered_map<std::string, Texture> _loadedTextures;
+
 	//frame storage
 	FrameData _frames[FRAME_OVERLAP];
 
 	// Descriptor Sets
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
+	VkDescriptorSetLayout _singleTextureSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	// GPU Data
@@ -142,11 +158,16 @@ public:
 	GPUSceneData _sceneParameters;
 	AllocatedBuffer _sceneParameterBuffer;
 
+	// Mesh copying
+	UploadContext _uploadContext;
+
 public:
 	void init();
 	void cleanup();
 	void draw();
 	void run();
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
 private:
 	void init_vulkan();
@@ -165,9 +186,9 @@ private:
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
 	void init_scene();
 	FrameData& get_current_frame();
-	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 	void init_descriptors();
 	size_t pad_uniform_buffer_size(size_t originalSize);
+	void load_images();
 };
 
 class PipelineBuilder {
