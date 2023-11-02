@@ -198,16 +198,6 @@ void VulkanEngine::run()
 	{
 		glfwPollEvents();
 
-		int state = glfwGetKey(_window, GLFW_KEY_SPACE);
-		if (state == GLFW_PRESS)
-		{
-			_selectedShader += 1;
-			if (_selectedShader > 1)
-			{
-				_selectedShader = 0;
-			}
-		}
-
 		draw();
 	}
 }
@@ -523,57 +513,12 @@ bool VulkanEngine::load_shader_module(const char* filePath, VkShaderModule* outS
 
 void VulkanEngine::init_pipelines()
 {
-	VkShaderModule triangleFragShader;
-	if (!load_shader_module("shaders/colored_triangle.frag.spv", &triangleFragShader))
-	{
-		std::cout << "Error when building the triangle fragment shader module" << std::endl;
-	}
-	else {
-		std::cout << "Triangle fragment shader succesfully loaded" << std::endl;
-	}
-
-	VkShaderModule triangleVertexShader;
-	if (!load_shader_module("shaders/colored_triangle.vert.spv", &triangleVertexShader))
-	{
-		std::cout << "Error when building the triangle vertex shader module" << std::endl;
-	}
-	else {
-		std::cout << "Triangle vertex shader succesfully loaded" << std::endl;
-	}
-
-	//compile colored triangle modules
-	VkShaderModule redTriangleFragShader;
-	if (!load_shader_module("shaders/triangle.frag.spv", &redTriangleFragShader))
-	{
-		std::cout << "Error when building the triangle fragment shader module" << std::endl;
-	}
-	else {
-		std::cout << "Red Triangle fragment shader succesfully loaded" << std::endl;
-	}
-
-	VkShaderModule redTriangleVertShader;
-	if (!load_shader_module("shaders/triangle.vert.spv", &redTriangleVertShader))
-	{
-		std::cout << "Error when building the triangle vertex shader module" << std::endl;
-	}
-	else {
-		std::cout << "Red Triangle vertex shader succesfully loaded" << std::endl;
-	}
-
 	//build the pipeline layout that controls the inputs/outputs of the shader
 	//we are not using descriptor sets or other systems yet, so no need to use anything other than empty default
 	VkPipelineLayoutCreateInfo pipeline_layout_info = vkinit::pipeline_layout_create_info();
 
-	VK_CHECK(vkCreatePipelineLayout(_device, &pipeline_layout_info, nullptr, &_trianglePipelineLayout));
-
 	//build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
 	PipelineBuilder pipelineBuilder;
-
-	pipelineBuilder._shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, triangleVertexShader));
-
-	pipelineBuilder._shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, triangleFragShader));
 
 
 	//vertex input controls how to read vertices from vertex buffers. We arent using it yet
@@ -603,35 +548,9 @@ void VulkanEngine::init_pipelines()
 	//a single blend attachment with no blending and writing to RGBA
 	pipelineBuilder._colorBlendAttachment = vkinit::color_blend_attachment_state();
 
-	//use the triangle layout we created
-	pipelineBuilder._pipelineLayout = _trianglePipelineLayout;
-
 
 	//default depthtesting
 	pipelineBuilder._depthStencil = vkinit::depth_stencil_create_info(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
-
-	//finally build the pipeline
-	_trianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
-
-	//clear the shader stages for the builder
-	pipelineBuilder._shaderStages.clear();
-
-	//add the other shaders
-	pipelineBuilder._shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, redTriangleVertShader));
-
-	pipelineBuilder._shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, redTriangleFragShader));
-
-
-
-	//build the red triangle pipeline
-	_redTrianglePipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
-
-
-
-
-	//build the mesh pipeline
 
 	VertexInputDescription vertexDescription = Vertex::get_vertex_description();
 
@@ -645,8 +564,14 @@ void VulkanEngine::init_pipelines()
 	//clear the shader stages for the builder
 	pipelineBuilder._shaderStages.clear();
 
-	//compile mesh vertex shader
-
+	VkShaderModule triangleFragShader;
+	if (!load_shader_module("shaders/colored_triangle.frag.spv", &triangleFragShader))
+	{
+		std::cout << "Error when building the triangle fragment shader module" << std::endl;
+	}
+	else {
+		std::cout << "Triangle fragment shader succesfully loaded" << std::endl;
+	}
 
 	VkShaderModule meshVertShader;
 	if (!load_shader_module("shaders/tri_mesh.vert.spv", &meshVertShader))
@@ -680,7 +605,12 @@ void VulkanEngine::init_pipelines()
 	mesh_pipeline_layout_info.pPushConstantRanges = &push_constant;
 	mesh_pipeline_layout_info.pushConstantRangeCount = 1;
 
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
+
 	VK_CHECK(vkCreatePipelineLayout(_device, &mesh_pipeline_layout_info, nullptr, &_meshPipelineLayout));
+
+
 
 	//hook the push constants layout
 	pipelineBuilder._pipelineLayout = _meshPipelineLayout;
@@ -691,17 +621,10 @@ void VulkanEngine::init_pipelines()
 	create_material(_meshPipeline, _meshPipelineLayout, "defaultmesh");
 
 	vkDestroyShaderModule(_device, meshVertShader, nullptr);
-	vkDestroyShaderModule(_device, redTriangleVertShader, nullptr);
-	vkDestroyShaderModule(_device, redTriangleFragShader, nullptr);
 	vkDestroyShaderModule(_device, triangleFragShader, nullptr);
-	vkDestroyShaderModule(_device, triangleVertexShader, nullptr);
 
 	_mainDeletionQueue.push_function([=]() {
-		vkDestroyPipeline(_device, _redTrianglePipeline, nullptr);
-		vkDestroyPipeline(_device, _trianglePipeline, nullptr);
 		vkDestroyPipeline(_device, _meshPipeline, nullptr);
-
-		vkDestroyPipelineLayout(_device, _trianglePipelineLayout, nullptr);
 		vkDestroyPipelineLayout(_device, _meshPipelineLayout, nullptr);
 		});
 }
@@ -765,6 +688,9 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass pass)
 
 void VulkanEngine::load_meshes()
 {
+	Mesh _triangleMesh;
+	Mesh _monkeyMesh;
+
 	_triangleMesh._vertices.resize(3);
 
 	_triangleMesh._vertices[0].position = { 1.f,1.f, 0.5f };

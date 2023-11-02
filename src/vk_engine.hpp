@@ -81,14 +81,6 @@ public:
 	VkSemaphore _presentSemaphore, _renderSemaphore;
 	VkFence _renderFence;
 
-	// Pipelines
-	VkPipelineLayout _trianglePipelineLayout;
-	VkPipeline _trianglePipeline;
-	VkPipeline _redTrianglePipeline;
-	int _selectedShader{ 0 };
-	VkPipeline _meshPipeline;
-	VkPipelineLayout _meshPipelineLayout;
-
 	// Cleanup Queue
 	DeletionQueue _mainDeletionQueue;
 
@@ -102,11 +94,8 @@ public:
 
 	// Renderable Objects
 	std::vector<RenderObject> _renderables;
-
 	std::unordered_map<std::string, Material> _materials;
 	std::unordered_map<std::string, Mesh> _meshes;
-	Mesh _triangleMesh;
-	Mesh _monkeyMesh;
 
 public:
 	void init();
