@@ -26,7 +26,6 @@ add_subdirectory(external/vk-bootstrap)
 # This is the main target
 #
 add_executable(CrowEngine ${HEADER_FILES} ${SOURCE_FILES} src/main.cpp)
-# target_include_directories(CrowEngine PRIVATE external/imgui)
 
 #
 # We want the C++ 20 standard for our project
@@ -48,7 +47,13 @@ target_link_libraries(CrowEngine vk-bootstrap)
 target_include_directories(CrowEngine PRIVATE external/tiny_obj_loader)
 target_include_directories(CrowEngine PRIVATE external/stb_image)
 target_include_directories(CrowEngine PRIVATE external/vk_mem_alloc)
-target_include_directories(CrowEngine PRIVATE external/imgui)
+# target_include_directories(CrowEngine PRIVATE external/imgui)
+
+
+
+# target_sources(imgui PRIVATE
+
+# )
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(CrowEngine Vulkan::Vulkan)
