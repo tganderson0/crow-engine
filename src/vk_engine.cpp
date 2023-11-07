@@ -1018,7 +1018,12 @@ void VulkanEngine::init_scene()
 
 	//_renderables.push_back(monkey);
 
-	//RenderObject 
+	RenderObject lantern;
+	lantern.mesh = get_mesh("lantern");
+	lantern.material = get_material("texturedmesh");
+	lantern.transformMatrix = glm::mat4{ 1.0f };
+
+	_renderables.push_back(lantern);
 
 	//RenderObject map;
 	//map.mesh = get_mesh("empire");
