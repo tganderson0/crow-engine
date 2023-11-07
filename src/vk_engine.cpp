@@ -1341,9 +1341,9 @@ void VulkanEngine::load_texture(VkFormat imageFormat, const char* textureName, c
 void VulkanEngine::load_images()
 {
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_color", "textures/lantern/Lantern_baseColor.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_baseColor.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_baseColor.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_emissive.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_normal.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_roughnessMetallic.png");
 }
 
 void VulkanEngine::init_imgui()

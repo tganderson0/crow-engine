@@ -23,6 +23,6 @@ layout (set = 2, binding = 3) uniform sampler2D roughnessMetallicMap;
 
 void main()
 {
-	vec3 color = texture(colorMap,texCoord).xyz;
+	vec3 color = texture(normalMap,texCoord).xyz;
 	outFragColor = vec4(color,1.0f);
 }
