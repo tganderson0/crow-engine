@@ -69,6 +69,7 @@ struct MeshPushConstants {
 
 struct Material {
 	VkDescriptorSet textureSet{ VK_NULL_HANDLE }; //texture defaulted to null
+
 	VkPipeline pipeline;
 	VkPipelineLayout pipelineLayout;
 };
@@ -149,6 +150,7 @@ public:
 	VkDescriptorSetLayout _globalSetLayout;
 	VkDescriptorSetLayout _objectSetLayout;
 	VkDescriptorSetLayout _singleTextureSetLayout;
+	VkDescriptorSetLayout _pbrTextureSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	// GPU Data
@@ -190,6 +192,7 @@ private:
 	size_t pad_uniform_buffer_size(size_t originalSize);
 	void load_images();
 	void init_imgui();
+	void load_texture(VkFormat imageFormat, const char* textureName, const char* filename);
 };
 
 class PipelineBuilder {

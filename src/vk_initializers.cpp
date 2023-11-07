@@ -332,3 +332,13 @@ VkWriteDescriptorSet vkinit::write_descriptor_image(VkDescriptorType type, VkDes
 
 	return write;
 }
+
+VkDescriptorImageInfo vkinit::descriptor_image_info(VkSampler sampler, VkImageView imageView, VkImageLayout imageLayout)
+{
+	VkDescriptorImageInfo imageInfo;
+	imageInfo.sampler = sampler;
+	imageInfo.imageView = imageView;
+	imageInfo.imageLayout = imageLayout;
+
+	return imageInfo;
+}

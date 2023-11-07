@@ -25,7 +25,9 @@
 #include "VkBootstrap.h"
 
 #include <iostream>
+#include <array>
 #include <fstream>
+#include <string>
 
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_vulkan.h"
@@ -582,7 +584,7 @@ void VulkanEngine::init_pipelines()
 	}
 
 	VkShaderModule texturedMeshShader;
-	if (!load_shader_module("shaders/textured_lit.frag.spv", &texturedMeshShader))
+	if (!load_shader_module("shaders/pbr_lit.frag.spv", &texturedMeshShader))
 	{
 		std::cout << "Error when building the colored mesh shader" << std::endl;
 	}
@@ -631,7 +633,7 @@ void VulkanEngine::init_pipelines()
 	//we start from  the normal mesh layout
 	VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
 
-	VkDescriptorSetLayout texturedSetLayouts[] = { _globalSetLayout, _objectSetLayout,_singleTextureSetLayout };
+	VkDescriptorSetLayout texturedSetLayouts[] = { _globalSetLayout, _objectSetLayout, _pbrTextureSetLayout };
 
 	textured_pipeline_layout_info.setLayoutCount = 3;
 	textured_pipeline_layout_info.pSetLayouts = texturedSetLayouts;
@@ -795,14 +797,19 @@ void VulkanEngine::load_meshes()
 	Mesh lostEmpire{};
 	lostEmpire.load_from_obj("models/lost_empire.obj");
 
+	Mesh lantern{};
+	lantern.load_from_obj("models/Lantern.obj");
+
 	upload_mesh(_triangleMesh);
 	upload_mesh(_monkeyMesh);
 	upload_mesh(lostEmpire);
+	upload_mesh(lantern);
 
 	//note that we are copying them. Eventually we will delete the hardcoded _monkey and _triangle meshes, so it's no problem now.
 	_meshes["monkey"] = _monkeyMesh;
 	_meshes["triangle"] = _triangleMesh;
 	_meshes["empire"] = lostEmpire;
+	_meshes["lantern"] = lantern;
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
@@ -976,7 +983,6 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 			if (object.material->textureSet != VK_NULL_HANDLE) {
 				//texture descriptor
 				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 2, 1, &object.material->textureSet, 0, nullptr);
-
 			}
 		}
 
@@ -1005,19 +1011,21 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 
 void VulkanEngine::init_scene()
 {
-	RenderObject monkey;
-	monkey.mesh = get_mesh("monkey");
-	monkey.material = get_material("defaultmesh");
-	monkey.transformMatrix = glm::mat4{ 1.0f };
+	//RenderObject monkey;
+	//monkey.mesh = get_mesh("monkey");
+	//monkey.material = get_material("defaultmesh");
+	//monkey.transformMatrix = glm::mat4{ 1.0f };
 
-	_renderables.push_back(monkey);
+	//_renderables.push_back(monkey);
 
-	RenderObject map;
-	map.mesh = get_mesh("empire");
-	map.material = get_material("texturedmesh");
-	map.transformMatrix = glm::translate(glm::vec3{ 5,-10,0 }); //glm::mat4{ 1.0f };
+	//RenderObject 
 
-	_renderables.push_back(map);
+	//RenderObject map;
+	//map.mesh = get_mesh("empire");
+	//map.material = get_material("texturedmesh");
+	//map.transformMatrix = glm::translate(glm::vec3{ 5,-10,0 }); //glm::mat4{ 1.0f };
+
+	//_renderables.push_back(map);
 
 	for (int x = -20; x <= 20; x++) {
 		for (int y = -20; y <= 20; y++) {
@@ -1041,7 +1049,7 @@ void VulkanEngine::init_scene()
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 	allocInfo.descriptorPool = _descriptorPool;
 	allocInfo.descriptorSetCount = 1;
-	allocInfo.pSetLayouts = &_singleTextureSetLayout;
+	allocInfo.pSetLayouts = &_pbrTextureSetLayout;
 
 	vkAllocateDescriptorSets(_device, &allocInfo, &texturedMat->textureSet);
 
@@ -1054,14 +1062,40 @@ void VulkanEngine::init_scene()
 		vkDestroySampler(_device, blockySampler, nullptr);
 		});
 
-	VkDescriptorImageInfo imageBufferInfo;
-	imageBufferInfo.sampler = blockySampler;
-	imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
-	imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	//VkDescriptorImageInfo imageBufferInfo;
+	//imageBufferInfo.sampler = blockySampler;
+	//imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
+	//imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->textureSet, &imageBufferInfo, 0);
+	//layout(set = 1, binding = 0) uniform sampler2D colorMap;
+	//layout(set = 1, binding = 1) uniform sampler2D emissiveMap;
+	//layout(set = 1, binding = 2) uniform sampler2D normalMap;
+	//layout(set = 1, binding = 3) uniform sampler2D roughnessMetallicMap;
 
-	vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
+	// Loading PBR textures!!!!
+	std::vector<VkDescriptorImageInfo> imageDescriptors{
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_roughnessmetal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+	};
+
+	std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
+	for (size_t i = 0; i < imageDescriptors.size(); i++)
+	{
+		writeDescriptorSets[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescriptorSets[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writeDescriptorSets[i].dstSet = texturedMat->textureSet;
+		writeDescriptorSets[i].dstBinding = static_cast<uint32_t>(i);
+		writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
+		writeDescriptorSets[i].descriptorCount = 1;
+	}
+
+	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+	//VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->textureSet, &imageBufferInfo, 0);
+
+	//vkUpdateDescriptorSets(_device, 1, &texture1, 0, nullptr);
 }
 
 FrameData& VulkanEngine::get_current_frame()
@@ -1153,6 +1187,22 @@ void VulkanEngine::init_descriptors()
 
 	vkCreateDescriptorSetLayout(_device, &set3info, nullptr, &_singleTextureSetLayout);
 
+	std::vector<VkDescriptorSetLayoutBinding> textureLayoutBindings = {
+		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+		{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+		{ 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+		{ 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+	};
+
+	VkDescriptorSetLayoutCreateInfo set4info = {};
+	set4info.bindingCount = static_cast<uint32_t>(textureLayoutBindings.size());
+	set4info.flags = 0;
+	set4info.pNext = nullptr;
+	set4info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	set4info.pBindings = textureLayoutBindings.data();
+
+	vkCreateDescriptorSetLayout(_device, &set4info, nullptr, &_pbrTextureSetLayout);
+
 
 	const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
 
@@ -1219,6 +1269,7 @@ void VulkanEngine::init_descriptors()
 		vkDestroyDescriptorSetLayout(_device, _objectSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _globalSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _singleTextureSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _pbrTextureSetLayout, nullptr);
 
 		vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
 
@@ -1270,20 +1321,24 @@ void VulkanEngine::immediate_submit(std::function<void(VkCommandBuffer cmd)>&& f
 	vkResetCommandPool(_device, _uploadContext._commandPool, 0);
 }
 
+void VulkanEngine::load_texture(VkFormat imageFormat, const char* textureName, const char* filename)
+{
+	Texture tempTexture;
+	vkutil::load_image_from_file(*this, filename, tempTexture.image);
+	VkImageViewCreateInfo imageInfo = vkinit::imageview_create_info(imageFormat, tempTexture.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	vkCreateImageView(_device, &imageInfo, nullptr, &tempTexture.imageView);
+	_loadedTextures[textureName] = tempTexture;
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyImageView(_device, tempTexture.imageView, nullptr);
+		});
+}
+
 void VulkanEngine::load_images()
 {
-	Texture lostEmpire;
-
-	vkutil::load_image_from_file(*this, "textures/lost_empire-RGBA.png", lostEmpire.image);
-
-	VkImageViewCreateInfo imageinfo = vkinit::imageview_create_info(VK_FORMAT_R8G8B8A8_SRGB, lostEmpire.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
-	vkCreateImageView(_device, &imageinfo, nullptr, &lostEmpire.imageView);
-
-	_loadedTextures["empire_diffuse"] = lostEmpire;
-
-	_mainDeletionQueue.push_function([=]() {
-		vkDestroyImageView(_device, lostEmpire.imageView, nullptr);
-		});
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_color", "textures/lantern/Lantern_baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_baseColor.png");
 }
 
 void VulkanEngine::init_imgui()
