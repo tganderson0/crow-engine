@@ -8,6 +8,7 @@
 #include <deque>
 #include <glm/glm.hpp>
 #include <unordered_map>
+#include <string>
 
 struct DeletionQueue
 {
@@ -28,11 +29,11 @@ struct DeletionQueue
 };
 
 struct GPUSceneData {
-	glm::vec4 fogColor; // w is for exponent
-	glm::vec4 fogDistances; //x for min, y for max, zw unused.
-	glm::vec4 ambientColor;
-	glm::vec4 sunlightDirection; //w for sun power
-	glm::vec4 sunlightColor;
+	glm::vec4 cameraPosition; // w is left unused
+	glm::vec4 lightColor; //  radiant intensity / radiant flux
+	glm::vec4 lightPosition; // w is left unused
+	glm::vec4 sunlightDirection; // unused
+	glm::vec4 sunlightColor; // unused
 };
 
 struct GPUCameraData {
@@ -46,7 +47,8 @@ struct GPUObjectData {
 };
 
 struct FrameData {
-	VkSemaphore _presentSemaphore, _renderSemaphore;
+	VkSemaphore _presentSemaphore;
+	VkSemaphore _renderSemaphore;
 	VkFence _renderFence;
 
 	DeletionQueue _frameDeletionQueue;

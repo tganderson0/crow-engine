@@ -586,7 +586,7 @@ void VulkanEngine::init_pipelines()
 	VkShaderModule texturedMeshShader;
 	if (!load_shader_module("shaders/pbr_lit.frag.spv", &texturedMeshShader))
 	{
-		std::cout << "Error when building the colored mesh shader" << std::endl;
+		std::cout << "Error when building the pbr shader" << std::endl;
 	}
 
 	VkShaderModule meshVertShader;
