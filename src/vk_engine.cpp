@@ -934,7 +934,10 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 
 	float framed = (_frameNumber / 120.f);
 
-	_sceneParameters.ambientColor = { sin(framed),0,cos(framed),1 };
+	// Update GPU data
+	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
+	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
+	_sceneParameters.lightPosition = glm::vec4(); // TODO: I am working here
 
 	char* sceneData;
 	vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void**)&sceneData);
