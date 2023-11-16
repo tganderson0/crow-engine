@@ -595,6 +595,12 @@ void VulkanEngine::init_pipelines()
 		std::cout << "Error when building the mesh vertex shader module" << std::endl;
 	}
 
+	VkShaderModule meshVertWithNormalShader;
+	if (!load_shader_module("shaders/tri_mesh_normal_ssbo.vert.spv", &meshVertWithNormalShader))
+	{
+		std::cout << "Error when building the mesh vertex shader module" << std::endl;
+	}
+
 
 	//build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
 	PipelineBuilder pipelineBuilder;
@@ -694,7 +700,7 @@ void VulkanEngine::init_pipelines()
 
 	pipelineBuilder._shaderStages.clear();
 	pipelineBuilder._shaderStages.push_back(
-		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertShader));
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, meshVertWithNormalShader));
 
 	pipelineBuilder._shaderStages.push_back(
 		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, texturedMeshShader));
@@ -707,6 +713,7 @@ void VulkanEngine::init_pipelines()
 	vkDestroyShaderModule(_device, meshVertShader, nullptr);
 	vkDestroyShaderModule(_device, colorMeshShader, nullptr);
 	vkDestroyShaderModule(_device, texturedMeshShader, nullptr);
+	vkDestroyShaderModule(_device, meshVertWithNormalShader, nullptr);
 
 
 	_mainDeletionQueue.push_function([=]() {
@@ -937,7 +944,7 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 	// Update GPU data
 	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
 	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
-	_sceneParameters.lightPosition = glm::vec4(); // TODO: I am working here
+	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0); // TODO: I am working here
 
 	char* sceneData;
 	vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void**)&sceneData);
