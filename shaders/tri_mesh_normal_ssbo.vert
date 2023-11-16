@@ -40,6 +40,6 @@ void main()
 	gl_Position = transformMatrix * vec4(vPosition, 1.0f);
 	outColor = vColor;
 	texCoord = vTexCoord;
-  outNormal = vNormal;
+  outNormal = normalize(transpose(inverse(mat3(transformMatrix))) * vNormal); // this should really be done on cpu and passed in like the model...
   outWorldPos = (modelMatrix * vec4(vPosition, 1.0f)).xyz;
 }

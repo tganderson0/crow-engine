@@ -67,10 +67,11 @@ void main()
   vec3 N = normalize(inNormal);
   vec3 V = normalize(sceneData.cameraPosition.xyz - inWorldPos);
   
-  vec3 albedo = texture(colorMap, texCoord).rgb;
-  float roughness = texture(roughnessMetallicMap, texCoord).r;
+  vec3 albedo = pow(texture(colorMap, texCoord).rgb, vec3(2.2));
+  float roughness = texture(roughnessMetallicMap, texCoord).b;
   float metallic = texture(roughnessMetallicMap, texCoord).g;
-  float ao = texture(roughnessMetallicMap, texCoord).b;
+  // float ao = texture(roughnessMetallicMap, texCoord).b;
+  float ao = 0.1;
   
   vec3 F0 = vec3(0.04);
   F0 = mix(F0, albedo, roughness);
@@ -111,6 +112,7 @@ void main()
   color = color / (color + vec3(1.0));
   color = pow(color, vec3(1.0/2.2));
 
+  // outFragColor = vec4(inNormal, 1.0f);
   outFragColor = vec4(color, 1.0f);
 
   // vec3 color = texture(colorMap,texCoord).xyz;
