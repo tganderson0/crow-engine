@@ -18,6 +18,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 #include <glm/gtx/transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
@@ -131,8 +132,7 @@ void VulkanEngine::draw()
 
 	//make a clear-color from frame number. This will flash with a 120 frame period.
 	VkClearValue clearValue;
-	float flash = abs(sin(_frameNumber / 120.f));
-	clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
+	clearValue.color = { { 0.39f, 0.58f, 0.93f, 1.0f } };
 
 	//clear depth at 1
 	VkClearValue depthClear;
@@ -223,6 +223,15 @@ void VulkanEngine::run()
 
 		// imgui render commands
 		ImGui::ShowDemoWindow();
+
+		ImGui::Begin("Global Settings");
+		ImGui::Text("Camera Settings");
+		ImGui::SliderFloat3("Camera Position", glm::value_ptr(_sceneParameters.cameraPosition), -50.0f, 50.0f);
+		ImGui::Text("Global Light Settings");
+		ImGui::SliderFloat3("Light Position", glm::value_ptr(_sceneParameters.lightPosition), -50.0f, 50.0f);
+		ImGui::SliderFloat3("Light Color", glm::value_ptr(_sceneParameters.lightColor), 0.0f, 500.0f);
+		ImGui::End();
+
 
 		draw();
 	}
@@ -920,9 +929,9 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 {
 	//make a model view matrix for rendering the object
 	//camera view
-	glm::vec3 camPos = { 0.f,-6.f,-10.f };
+	
 
-	glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+	glm::mat4 view = glm::translate(glm::mat4(1.f), glm::vec3(_sceneParameters.cameraPosition));
 	//camera projection
 	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
 	projection[1][1] *= -1;
@@ -942,9 +951,9 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 	float framed = (_frameNumber / 120.f);
 
 	// Update GPU data
-	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
-	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
-	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0); // TODO: I am working here
+
+	// Camera and global light positions
+	
 
 	char* sceneData;
 	vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void**)&sceneData);
@@ -1021,12 +1030,10 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 
 void VulkanEngine::init_scene()
 {
-	//RenderObject monkey;
-	//monkey.mesh = get_mesh("monkey");
-	//monkey.material = get_material("defaultmesh");
-	//monkey.transformMatrix = glm::mat4{ 1.0f };
-
-	//_renderables.push_back(monkey);
+	glm::vec3 camPos = { 0.f,-15.f,-30.f };
+	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
+	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
+	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0);
 
 	RenderObject lantern;
 	lantern.mesh = get_mesh("lantern");
@@ -1034,13 +1041,6 @@ void VulkanEngine::init_scene()
 	lantern.transformMatrix = glm::mat4{ 1.0f };
 
 	_renderables.push_back(lantern);
-
-	//RenderObject map;
-	//map.mesh = get_mesh("empire");
-	//map.material = get_material("texturedmesh");
-	//map.transformMatrix = glm::translate(glm::vec3{ 5,-10,0 }); //glm::mat4{ 1.0f };
-
-	//_renderables.push_back(map);
 
 	for (int x = -20; x <= 20; x++) {
 		for (int y = -20; y <= 20; y++) {
