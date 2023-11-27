@@ -195,6 +195,7 @@ private:
 	void load_images();
 	void init_imgui();
 	void load_texture(VkFormat imageFormat, const char* textureName, const char* filename);
+	void load_cubemap(VkFormat imageFormat, const char* textureName, std::array<const char*, 6> filenames);
 };
 
 class PipelineBuilder {

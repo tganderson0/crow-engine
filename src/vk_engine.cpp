@@ -1348,6 +1348,22 @@ void VulkanEngine::load_texture(VkFormat imageFormat, const char* textureName, c
 		});
 }
 
+// Modified from here
+// https://satellitnorden.wordpress.com/2018/01/23/vulkan-adventures-cube-map-tutorial/
+void VulkanEngine::load_cubemap(VkFormat imageFormat, const char* textureName, std::array<const char*, 6> filenames)
+{
+	Texture tempTexture;
+	vkutil::load_cubemap_from_file(*this, filenames, tempTexture.image);
+	VkImageViewCreateInfo imageInfo = vkinit::imageview_create_info(imageFormat, tempTexture.image._image, VK_IMAGE_ASPECT_COLOR_BIT);
+	imageInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+	imageInfo.subresourceRange.layerCount = 6;
+	vkCreateImageView(_device, &imageInfo, nullptr, &tempTexture.imageView);
+	_loadedTextures[textureName] = tempTexture;
+	_mainDeletionQueue.push_function([=]() {
+		vkDestroyImageView(_device, tempTexture.imageView, nullptr);
+		});
+}
+
 void VulkanEngine::load_images()
 {
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_color", "textures/lantern/Lantern_baseColor.png");
