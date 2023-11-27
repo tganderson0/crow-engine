@@ -15,19 +15,19 @@ bool vkutil::load_cubemap_from_file(VulkanEngine& engine, std::array<const char*
 {
 	int texWidth, texHeight, texChannels;
 
-	stbi_uc* pixels[6];
+	stbi_uc* front;
+	stbi_uc* back;
+	stbi_uc* up;
+	stbi_uc* down;
+	stbi_uc* right;
+	stbi_uc* left;
 
-	for (int i = 0; i < 6; i++)
-	{
-		pixels[i] = stbi_load(files[i], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-
-		if (!pixels[i]) {
-			std::cout << "Failed to load texture file " << files[i] << std::endl;
-			return false;
-		}
-	}
-
-	void* pixel_ptr = pixels;
+	front = stbi_load(files[0], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	back = stbi_load(files[1], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	up = stbi_load(files[2], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	down = stbi_load(files[3], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	right = stbi_load(files[4], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	left = stbi_load(files[5], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
 	VkDeviceSize imageSize = texWidth * texHeight * 4 * 6; // 6 images, rgba
 	VkDeviceSize layerSize = imageSize / 6;
@@ -37,9 +37,20 @@ bool vkutil::load_cubemap_from_file(VulkanEngine& engine, std::array<const char*
 
 	void* data;
 	vmaMapMemory(engine._allocator, stagingBuffer._allocation, &data);
-	memcpy(data, pixel_ptr, static_cast<size_t>(imageSize));
+	memcpy(data, front, static_cast<size_t>(layerSize));
+	memcpy(static_cast<unsigned char*>(data) + (1 * layerSize), back, static_cast<size_t>(layerSize));
+	memcpy(static_cast<unsigned char*>(data) + (2 * layerSize), up, static_cast<size_t>(layerSize));
+	memcpy(static_cast<unsigned char*>(data) + (3 * layerSize), down, static_cast<size_t>(layerSize));
+	memcpy(static_cast<unsigned char*>(data) + (4 * layerSize), right, static_cast<size_t>(layerSize));
+	memcpy(static_cast<unsigned char*>(data) + (5 * layerSize), left, static_cast<size_t>(layerSize));
+
 	vmaUnmapMemory(engine._allocator, stagingBuffer._allocation);
-	stbi_image_free(pixels);
+	stbi_image_free(front);
+	stbi_image_free(back);
+	stbi_image_free(up);
+	stbi_image_free(down);
+	stbi_image_free(right);
+	stbi_image_free(left);
 
 	VkExtent3D imageExtent;
 	imageExtent.width = static_cast<uint32_t>(texWidth);

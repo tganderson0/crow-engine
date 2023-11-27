@@ -1348,6 +1348,8 @@ void VulkanEngine::load_texture(VkFormat imageFormat, const char* textureName, c
 		});
 }
 
+// Should load in front, back, up, down, right, left
+// 
 // Modified from here
 // https://satellitnorden.wordpress.com/2018/01/23/vulkan-adventures-cube-map-tutorial/
 void VulkanEngine::load_cubemap(VkFormat imageFormat, const char* textureName, std::array<const char*, 6> filenames)
@@ -1370,6 +1372,14 @@ void VulkanEngine::load_images()
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_emissive.png");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_normal.png");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_roughnessMetallic.png");
+	load_cubemap(VK_FORMAT_R8G8B8A8_SRGB, "yokohama_cubemap", {
+		"textures/Yokohama2/negz.jpg",
+		"textures/Yokohama2/posz.jpg",
+		"textures/Yokohama2/posy.jpg",
+		"textures/Yokohama2/negy.jpg",
+		"textures/Yokohama2/posx.jpg",
+		"textures/Yokohama2/negx.jpg",
+		});
 }
 
 void VulkanEngine::init_imgui()
