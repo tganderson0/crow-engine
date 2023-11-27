@@ -610,6 +610,17 @@ void VulkanEngine::init_pipelines()
 		std::cout << "Error when building the mesh vertex shader module" << std::endl;
 	}
 
+	VkShaderModule cubemapVertex;
+	if (!load_shader_module("shaders/cubemap.vert.spv", &cubemapVertex))
+	{
+		std::cout << "Error when building the cubemap vertex shader module" << std::endl;
+	}
+
+	VkShaderModule cubemapFragment;
+	if (!load_shader_module("shaders/cubemap.frag.spv", &cubemapFragment))
+	{
+		std::cout << "Error when building the cubemap fragment shader module" << std::endl;
+	}
 
 	//build the stage-create-info for both vertex and fragment stages. This lets the pipeline know the shader modules per stage
 	PipelineBuilder pipelineBuilder;
@@ -723,6 +734,8 @@ void VulkanEngine::init_pipelines()
 	vkDestroyShaderModule(_device, colorMeshShader, nullptr);
 	vkDestroyShaderModule(_device, texturedMeshShader, nullptr);
 	vkDestroyShaderModule(_device, meshVertWithNormalShader, nullptr);
+	vkDestroyShaderModule(_device, cubemapFragment, nullptr);
+	vkDestroyShaderModule(_device, cubemapVertex, nullptr);
 
 
 	_mainDeletionQueue.push_function([=]() {
