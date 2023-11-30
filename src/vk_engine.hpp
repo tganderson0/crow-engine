@@ -153,6 +153,7 @@ public:
 	VkDescriptorSetLayout _objectSetLayout;
 	VkDescriptorSetLayout _singleTextureSetLayout;
 	VkDescriptorSetLayout _pbrTextureSetLayout;
+	VkDescriptorSetLayout _cubemapSetLayout;
 	VkDescriptorPool _descriptorPool;
 
 	// GPU Data
@@ -188,6 +189,7 @@ private:
 	Material* get_material(const std::string& name);
 	Mesh* get_mesh(const std::string& name);
 	void draw_objects(VkCommandBuffer cmd, RenderObject* first, int count);
+	void draw_skybox(VkCommandBuffer cmd);
 	void init_scene();
 	FrameData& get_current_frame();
 	void init_descriptors();

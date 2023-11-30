@@ -156,8 +156,8 @@ void VulkanEngine::draw()
 	//
 	//
 	///////////////////////////////////////////////////////////////
-	
 	draw_objects(cmd, _renderables.data(), _renderables.size());
+	//draw_skybox(cmd);
 
 	// imgui
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
@@ -232,7 +232,7 @@ void VulkanEngine::run()
 		ImGui::SliderFloat3("Light Color", glm::value_ptr(_sceneParameters.lightColor), 0.0f, 500.0f);
 		ImGui::End();
 
-
+		
 		draw();
 	}
 }
@@ -655,6 +655,13 @@ void VulkanEngine::init_pipelines()
 	VkPipelineLayout meshPipeLayout;
 	VK_CHECK(vkCreatePipelineLayout(_device, &mesh_pipeline_layout_info, nullptr, &meshPipeLayout));
 
+	VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = mesh_pipeline_layout_info;
+	VkDescriptorSetLayout skyboxSetLayouts[] = { _globalSetLayout, _objectSetLayout, _cubemapSetLayout };
+	skybox_pipeline_layout_info.setLayoutCount = 3;
+	skybox_pipeline_layout_info.pSetLayouts = skyboxSetLayouts;
+
+	VkPipelineLayout skyboxPipeLayout;
+	VK_CHECK(vkCreatePipelineLayout(_device, &skybox_pipeline_layout_info, nullptr, &skyboxPipeLayout));
 
 	//we start from  the normal mesh layout
 	VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
@@ -729,6 +736,16 @@ void VulkanEngine::init_pipelines()
 	VkPipeline texPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
 	create_material(texPipeline, texturedPipeLayout, "texturedmesh");
 
+	pipelineBuilder._shaderStages.clear();
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, cubemapVertex)
+	);
+	pipelineBuilder._shaderStages.push_back(
+		vkinit::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, cubemapFragment)
+	);
+	pipelineBuilder._pipelineLayout = skyboxPipeLayout;
+	VkPipeline skyboxPipeline = pipelineBuilder.build_pipeline(_device, _renderPass);
+	create_material(skyboxPipeline, skyboxPipeLayout, "skybox");
 
 	vkDestroyShaderModule(_device, meshVertShader, nullptr);
 	vkDestroyShaderModule(_device, colorMeshShader, nullptr);
@@ -741,7 +758,9 @@ void VulkanEngine::init_pipelines()
 	_mainDeletionQueue.push_function([=]() {
 		vkDestroyPipeline(_device, meshPipeline, nullptr);
 		vkDestroyPipeline(_device, texPipeline, nullptr);
+		vkDestroyPipeline(_device, skyboxPipeline, nullptr);
 
+		vkDestroyPipelineLayout(_device, skyboxPipeLayout, nullptr);
 		vkDestroyPipelineLayout(_device, meshPipeLayout, nullptr);
 		vkDestroyPipelineLayout(_device, texturedPipeLayout, nullptr);
 		});
@@ -829,16 +848,21 @@ void VulkanEngine::load_meshes()
 	Mesh lantern{};
 	lantern.load_from_obj("models/Lantern.obj");
 
+	Mesh box{};
+	box.load_from_obj("models/box.obj");
+
 	upload_mesh(_triangleMesh);
 	upload_mesh(_monkeyMesh);
 	upload_mesh(lostEmpire);
 	upload_mesh(lantern);
+	upload_mesh(box);
 
 	//note that we are copying them. Eventually we will delete the hardcoded _monkey and _triangle meshes, so it's no problem now.
 	_meshes["monkey"] = _monkeyMesh;
 	_meshes["triangle"] = _triangleMesh;
 	_meshes["empire"] = lostEmpire;
 	_meshes["lantern"] = lantern;
+	_meshes["box"] = box;
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
@@ -937,12 +961,36 @@ Mesh* VulkanEngine::get_mesh(const std::string& name)
 	}
 }
 
+void VulkanEngine::draw_skybox(VkCommandBuffer cmd)
+{
+	Material* skyMat = get_material("skybox");
+	Mesh* box = get_mesh("box");
+	vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skyMat->pipeline);
+	int frameIndex = _frameNumber % FRAME_OVERLAP;
+	uint32_t uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skyMat->pipelineLayout, 0, 1, &get_current_frame().globalDescriptor, 1, &uniform_offset);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skyMat->pipelineLayout, 1, 1, &get_current_frame().objectDescriptor, 0, nullptr);
+	vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, skyMat->pipelineLayout, 2, 1, &(skyMat->textureSet), 0, nullptr);
+
+	glm::mat4 model{ 1.0 };
+	//final render matrix, that we are calculating on the cpu
+	glm::mat4 mesh_matrix = model;
+
+	MeshPushConstants constants;
+	constants.render_matrix = mesh_matrix;
+
+	//upload the mesh to the gpu via pushconstants
+	vkCmdPushConstants(cmd, skyMat->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
+
+	VkDeviceSize offset = 0;
+	vkCmdBindVertexBuffers(cmd, 0, 1, &box->_vertexBuffer._buffer, &offset);
+	vkCmdDraw(cmd, box->_vertices.size(), 1, 0, 0);
+}
 
 void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int count)
 {
 	//make a model view matrix for rendering the object
 	//camera view
-	
 
 	glm::mat4 view = glm::translate(glm::mat4(1.f), glm::vec3(_sceneParameters.cameraPosition));
 	//camera projection
@@ -1043,7 +1091,8 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 
 void VulkanEngine::init_scene()
 {
-	glm::vec3 camPos = { 0.f,-15.f,-30.f };
+	//glm::vec3 camPos = { 0.f,-15.f,-30.f };
+	glm::vec3 camPos = { 0.0f, 0.0f, 0.0f };
 	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
 	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
 	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0);
@@ -1051,26 +1100,34 @@ void VulkanEngine::init_scene()
 	RenderObject lantern;
 	lantern.mesh = get_mesh("lantern");
 	lantern.material = get_material("texturedmesh");
-	lantern.transformMatrix = glm::mat4{ 1.0f };
+	lantern.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
 	_renderables.push_back(lantern);
 
-	for (int x = -20; x <= 20; x++) {
-		for (int y = -20; y <= 20; y++) {
+	//for (int x = -20; x <= 20; x++) {
+	//	for (int y = -20; y <= 20; y++) {
 
-			RenderObject tri;
-			tri.mesh = get_mesh("triangle");
-			tri.material = get_material("defaultmesh");
-			glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
-			glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
-			tri.transformMatrix = translation * scale;
+	//		RenderObject tri;
+	//		tri.mesh = get_mesh("triangle");
+	//		tri.material = get_material("defaultmesh");
+	//		glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
+	//		glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
+	//		tri.transformMatrix = translation * scale;
 
-			_renderables.push_back(tri);
-		}
-	}
+	//		_renderables.push_back(tri);
+	//	}
+	//}
 
+	RenderObject skybox;
+	skybox.mesh = get_mesh("box");
+	skybox.material = get_material("skybox");
+	glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(10, 10, 10));
+	skybox.transformMatrix = scale;
+	_renderables.push_back(skybox);
 
 	Material* texturedMat = get_material("texturedmesh");
+
+	Material* skyboxMat = get_material("skybox");
 
 	VkDescriptorSetAllocateInfo allocInfo = {};
 	allocInfo.pNext = nullptr;
@@ -1081,6 +1138,17 @@ void VulkanEngine::init_scene()
 
 	vkAllocateDescriptorSets(_device, &allocInfo, &texturedMat->textureSet);
 
+	// TODO: This is broken below
+
+	VkDescriptorSetAllocateInfo skyboxallocInfo = {};
+	skyboxallocInfo.pNext = nullptr;
+	skyboxallocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+	skyboxallocInfo.descriptorPool = _descriptorPool;
+	skyboxallocInfo.descriptorSetCount = 1;
+	skyboxallocInfo.pSetLayouts = &_cubemapSetLayout;
+
+	vkAllocateDescriptorSets(_device, &skyboxallocInfo, &skyboxMat->textureSet);
+
 	VkSamplerCreateInfo samplerInfo = vkinit::sampler_create_info(VK_FILTER_NEAREST);
 
 	VkSampler blockySampler;
@@ -1090,22 +1158,17 @@ void VulkanEngine::init_scene()
 		vkDestroySampler(_device, blockySampler, nullptr);
 		});
 
-	//VkDescriptorImageInfo imageBufferInfo;
-	//imageBufferInfo.sampler = blockySampler;
-	//imageBufferInfo.imageView = _loadedTextures["empire_diffuse"].imageView;
-	//imageBufferInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	//layout(set = 1, binding = 0) uniform sampler2D colorMap;
-	//layout(set = 1, binding = 1) uniform sampler2D emissiveMap;
-	//layout(set = 1, binding = 2) uniform sampler2D normalMap;
-	//layout(set = 1, binding = 3) uniform sampler2D roughnessMetallicMap;
-
 	// Loading PBR textures!!!!
 	std::vector<VkDescriptorImageInfo> imageDescriptors{
 		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_roughnessmetal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+	};
+
+	// Cubemap textures!!!!
+	std::vector<VkDescriptorImageInfo> cubemapDescriptors{
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["yokohama_cubemap"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 	};
 
 	std::array<VkWriteDescriptorSet, 4> writeDescriptorSets{};
@@ -1118,6 +1181,16 @@ void VulkanEngine::init_scene()
 		writeDescriptorSets[i].pImageInfo = &imageDescriptors[i];
 		writeDescriptorSets[i].descriptorCount = 1;
 	}
+
+	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+
+	std::array<VkWriteDescriptorSet, 1> cubemapDescriptorSet{};
+	cubemapDescriptorSet[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	cubemapDescriptorSet[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	cubemapDescriptorSet[0].dstSet = skyboxMat->textureSet;
+	cubemapDescriptorSet[0].dstBinding = static_cast<uint32_t>(0);
+	cubemapDescriptorSet[0].pImageInfo = &cubemapDescriptors[0];
+	cubemapDescriptorSet[0].descriptorCount = 1;
 
 	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
 
@@ -1215,6 +1288,17 @@ void VulkanEngine::init_descriptors()
 
 	vkCreateDescriptorSetLayout(_device, &set3info, nullptr, &_singleTextureSetLayout);
 
+	std::vector<VkDescriptorSetLayoutBinding> cubemapBindings = {
+		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
+	};
+	VkDescriptorSetLayoutCreateInfo cubemapinfo{};
+	cubemapinfo.bindingCount = static_cast<uint32_t>(cubemapBindings.size());;
+	cubemapinfo.flags = 0;
+	cubemapinfo.pNext = nullptr;
+	cubemapinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	cubemapinfo.pBindings = cubemapBindings.data();
+	vkCreateDescriptorSetLayout(_device, &cubemapinfo, nullptr, &_cubemapSetLayout);
+
 	std::vector<VkDescriptorSetLayoutBinding> textureLayoutBindings = {
 		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
 		{ 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
@@ -1231,6 +1315,14 @@ void VulkanEngine::init_descriptors()
 
 	vkCreateDescriptorSetLayout(_device, &set4info, nullptr, &_pbrTextureSetLayout);
 
+	//VkDescriptorSetLayoutCreateInfo skyboxSetInfo = {};
+	//skyboxSetInfo.bindingCount = static_cast<uint32_t>(skyboxLayoutBindings.size());
+	//skyboxSetInfo.flags = 0;
+	//skyboxSetInfo.pNext = nullptr;
+	//skyboxSetInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+	//skyboxSetInfo.pBindings = skyboxLayoutBindings.data();
+
+	//vkCreateDescriptorSetLayout(_device, &skyboxSetInfo, nullptr, &_cubemapSetLayout);
 
 	const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
 
