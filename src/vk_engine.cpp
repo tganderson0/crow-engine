@@ -1102,7 +1102,7 @@ void VulkanEngine::init_scene()
 	lantern.material = get_material("texturedmesh");
 	lantern.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
-	_renderables.push_back(lantern);
+	//_renderables.push_back(lantern);
 
 	//for (int x = -20; x <= 20; x++) {
 	//	for (int y = -20; y <= 20; y++) {
@@ -1192,7 +1192,7 @@ void VulkanEngine::init_scene()
 	cubemapDescriptorSet[0].pImageInfo = &cubemapDescriptors[0];
 	cubemapDescriptorSet[0].descriptorCount = 1;
 
-	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(writeDescriptorSets.size()), writeDescriptorSets.data(), 0, nullptr);
+	vkUpdateDescriptorSets(_device, static_cast<uint32_t>(cubemapDescriptorSet.size()), cubemapDescriptorSet.data(), 0, nullptr);
 
 	//VkWriteDescriptorSet texture1 = vkinit::write_descriptor_image(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, texturedMat->textureSet, &imageBufferInfo, 0);
 
@@ -1288,15 +1288,14 @@ void VulkanEngine::init_descriptors()
 
 	vkCreateDescriptorSetLayout(_device, &set3info, nullptr, &_singleTextureSetLayout);
 
-	std::vector<VkDescriptorSetLayoutBinding> cubemapBindings = {
-		{ 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr },
-	};
+	VkDescriptorSetLayoutBinding cubemapBind = vkinit::descriptorset_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
+
 	VkDescriptorSetLayoutCreateInfo cubemapinfo{};
-	cubemapinfo.bindingCount = static_cast<uint32_t>(cubemapBindings.size());;
+	cubemapinfo.bindingCount = 1;
 	cubemapinfo.flags = 0;
 	cubemapinfo.pNext = nullptr;
 	cubemapinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	cubemapinfo.pBindings = cubemapBindings.data();
+	cubemapinfo.pBindings = &cubemapBind;
 	vkCreateDescriptorSetLayout(_device, &cubemapinfo, nullptr, &_cubemapSetLayout);
 
 	std::vector<VkDescriptorSetLayoutBinding> textureLayoutBindings = {
@@ -1315,19 +1314,9 @@ void VulkanEngine::init_descriptors()
 
 	vkCreateDescriptorSetLayout(_device, &set4info, nullptr, &_pbrTextureSetLayout);
 
-	//VkDescriptorSetLayoutCreateInfo skyboxSetInfo = {};
-	//skyboxSetInfo.bindingCount = static_cast<uint32_t>(skyboxLayoutBindings.size());
-	//skyboxSetInfo.flags = 0;
-	//skyboxSetInfo.pNext = nullptr;
-	//skyboxSetInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	//skyboxSetInfo.pBindings = skyboxLayoutBindings.data();
-
-	//vkCreateDescriptorSetLayout(_device, &skyboxSetInfo, nullptr, &_cubemapSetLayout);
-
 	const size_t sceneParamBufferSize = FRAME_OVERLAP * pad_uniform_buffer_size(sizeof(GPUSceneData));
 
 	_sceneParameterBuffer = create_buffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
 
 	for (int i = 0; i < FRAME_OVERLAP; i++)
 	{

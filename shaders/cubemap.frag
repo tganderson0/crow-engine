@@ -12,5 +12,5 @@ layout (set = 2, binding = 0) uniform samplerCube cubeMapTexture;
 void main() 
 {	
 	outFragColor = texture(cubeMapTexture, texCoords);
-	outFragColor = vec4(texCoords, 1.0);
+	// outFragColor = vec4(texCoords, 1.0);
 }
