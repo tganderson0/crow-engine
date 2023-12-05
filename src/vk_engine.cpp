@@ -1379,6 +1379,7 @@ void VulkanEngine::init_descriptors()
 		vkDestroyDescriptorSetLayout(_device, _globalSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _singleTextureSetLayout, nullptr);
 		vkDestroyDescriptorSetLayout(_device, _pbrTextureSetLayout, nullptr);
+		vkDestroyDescriptorSetLayout(_device, _cubemapSetLayout, nullptr);
 
 		vkDestroyDescriptorPool(_device, _descriptorPool, nullptr);
 

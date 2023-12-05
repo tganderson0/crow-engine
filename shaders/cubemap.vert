@@ -14,6 +14,7 @@ layout(set = 0, binding = 0) uniform  CameraBuffer{
 
 void main()
 {
-	gl_Position =  cameraData.viewproj * vec4(vPosition, 1.0f);
+	vec4 pos = cameraData.proj * mat4(mat3(cameraData.view)) * vec4(vPosition, 1.0f);
+  gl_Position = pos.xyww;
   texCoord = vPosition;
 }
