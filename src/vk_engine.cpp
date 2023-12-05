@@ -851,11 +851,15 @@ void VulkanEngine::load_meshes()
 	Mesh box{};
 	box.load_from_obj("models/box.obj");
 
+	Mesh damaged_helmet{};
+	damaged_helmet.load_from_obj("models/damagedhelmet.obj");
+
 	upload_mesh(_triangleMesh);
 	upload_mesh(_monkeyMesh);
 	upload_mesh(lostEmpire);
 	upload_mesh(lantern);
 	upload_mesh(box);
+	upload_mesh(damaged_helmet);
 
 	//note that we are copying them. Eventually we will delete the hardcoded _monkey and _triangle meshes, so it's no problem now.
 	_meshes["monkey"] = _monkeyMesh;
@@ -863,6 +867,7 @@ void VulkanEngine::load_meshes()
 	_meshes["empire"] = lostEmpire;
 	_meshes["lantern"] = lantern;
 	_meshes["box"] = box;
+	_meshes["damaged_helmet"] = damaged_helmet;
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
@@ -1097,26 +1102,17 @@ void VulkanEngine::init_scene()
 	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
 	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0);
 
-	RenderObject lantern;
-	lantern.mesh = get_mesh("lantern");
-	lantern.material = get_material("texturedmesh");
-	lantern.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
+	//RenderObject lantern;
+	//lantern.mesh = get_mesh("lantern");
+	//lantern.material = get_material("texturedmesh");
+	//lantern.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
-	//_renderables.push_back(lantern);
+	RenderObject helmet;
+	helmet.mesh = get_mesh("damaged_helmet");
+	helmet.material = get_material("texturedmesh");
+	helmet.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
-	//for (int x = -20; x <= 20; x++) {
-	//	for (int y = -20; y <= 20; y++) {
-
-	//		RenderObject tri;
-	//		tri.mesh = get_mesh("triangle");
-	//		tri.material = get_material("defaultmesh");
-	//		glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
-	//		glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
-	//		tri.transformMatrix = translation * scale;
-
-	//		_renderables.push_back(tri);
-	//	}
-	//}
+	_renderables.push_back(helmet);
 
 	RenderObject skybox;
 	skybox.mesh = get_mesh("box");
@@ -1160,10 +1156,10 @@ void VulkanEngine::init_scene()
 
 	// Loading PBR textures!!!!
 	std::vector<VkDescriptorImageInfo> imageDescriptors{
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["pbr_roughnessmetal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_metalroughness"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 	};
 
 	// Cubemap textures!!!!
@@ -1467,6 +1463,13 @@ void VulkanEngine::load_images()
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_emissive.png");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_normal.png");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_roughnessMetallic.png");
+
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_color", "textures/damaged_helmet/Default_albedo.jpg");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_emissive", "textures/damaged_helmet/Default_emissive.jpg");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_normal", "textures/damaged_helmet/Default_normal.jpg");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_metalroughness", "textures/damaged_helmet/Default_metalRoughness.jpg");
+
+
 	load_cubemap(VK_FORMAT_R8G8B8A8_SRGB, "yokohama_cubemap", {
 		"textures/Yokohama2/negz.jpg",
 		"textures/Yokohama2/posz.jpg",
