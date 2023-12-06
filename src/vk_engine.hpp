@@ -8,7 +8,9 @@
 #include <deque>
 #include <glm/glm.hpp>
 #include <unordered_map>
+#include <chrono>
 #include <string>
+#include "camera.hpp"
 
 struct DeletionQueue
 {
@@ -166,6 +168,19 @@ public:
 	// Mesh copying
 	UploadContext _uploadContext;
 
+	// Camera
+	Camera camera;
+
+	// Timing
+	double delta_time;
+
+	// mouse input
+	double mouse_x, mouse_y;
+	double scroll_offset_x, scroll_offset_y;
+
+private:
+	std::chrono::time_point<std::chrono::steady_clock> last_time;
+
 public:
 	void init();
 	void cleanup();
@@ -198,6 +213,7 @@ private:
 	void init_imgui();
 	void load_texture(VkFormat imageFormat, const char* textureName, const char* filename);
 	void load_cubemap(VkFormat imageFormat, const char* textureName, std::array<const char*, 6> filenames);
+	void handle_input();
 };
 
 class PipelineBuilder {

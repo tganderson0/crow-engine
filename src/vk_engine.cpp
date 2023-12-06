@@ -51,6 +51,13 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	//app->framebufferResized = true;
 }
 
+static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	auto app = reinterpret_cast<VulkanEngine*>(glfwGetWindowUserPointer(window));
+	app->scroll_offset_x = xoffset;
+	app->scroll_offset_y = yoffset;
+}
+
 
 void VulkanEngine::init()
 {
@@ -59,6 +66,7 @@ void VulkanEngine::init()
 	_window = glfwCreateWindow(_windowExtent.width, _windowExtent.height, "Vulkan", nullptr, nullptr);
 	glfwSetWindowUserPointer(_window, this);
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
+	glfwSetScrollCallback(_window, scroll_callback);
 
 	init_vulkan();
 
@@ -83,6 +91,11 @@ void VulkanEngine::init()
 	init_scene();
 
 	init_imgui();
+
+	last_time = std::chrono::steady_clock::now();
+	glfwGetCursorPos(_window, &mouse_x, &mouse_y);
+	scroll_offset_x = 0;
+	scroll_offset_y = 0;
 
 	_isInitialized = true;
 }
@@ -214,6 +227,9 @@ void VulkanEngine::run()
 {
 	while (!glfwWindowShouldClose(_window))
 	{
+		auto current_time = std::chrono::steady_clock::now();
+		delta_time = static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(current_time - last_time).count()) / 1e6;
+
 		glfwPollEvents();
 
 		ImGui_ImplVulkan_NewFrame();
@@ -226,15 +242,63 @@ void VulkanEngine::run()
 
 		ImGui::Begin("Global Settings");
 		ImGui::Text("Camera Settings");
-		ImGui::SliderFloat3("Camera Position", glm::value_ptr(_sceneParameters.cameraPosition), -50.0f, 50.0f);
+		ImGui::SliderFloat3("Camera Position", glm::value_ptr(camera._position), -50.0f, 50.0f);
+		ImGui::SliderFloat("Camera Speed", &camera._movement_speed, 0.0f, 1.0f);
+		ImGui::SliderFloat("Camera Sensitivity", &camera._mouse_sensitivity, 0.0f, 1.0f);
 		ImGui::Text("Global Light Settings");
 		ImGui::SliderFloat3("Light Position", glm::value_ptr(_sceneParameters.lightPosition), -50.0f, 50.0f);
 		ImGui::SliderFloat3("Light Color", glm::value_ptr(_sceneParameters.lightColor), 0.0f, 500.0f);
 		ImGui::End();
 
+		handle_input();
 		
+		_sceneParameters.cameraPosition = glm::vec4(camera._position, 0.0f);
+
 		draw();
 	}
+}
+
+void VulkanEngine::handle_input()
+{
+	const float cameraSpeed = 0.05f;
+	if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::FORWARD, delta_time);
+	}
+	if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::LEFT, delta_time);
+	}
+	if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::BACKWARD, delta_time);
+	}
+	if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::RIGHT, delta_time);
+	}
+	if (glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::DOWN, delta_time);
+	}
+	if (glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS)
+	{
+		camera.ProcessKeyboard(CameraMovement::UP, delta_time);
+	}
+
+	double current_x, current_y;
+	glfwGetCursorPos(_window, &current_x, &current_y);
+
+	double delta_cursor_x = current_x - mouse_x;
+	double delta_cursor_y = -(current_y - mouse_y);
+	mouse_x = current_x;
+	mouse_y = current_y;
+
+	camera.ProcessMouseMovement(delta_cursor_x, delta_cursor_y, true);
+	camera.ProcessMouseScroll(scroll_offset_y);
+
+	scroll_offset_x = 0.0f;
+	scroll_offset_y = 0.0f;
 }
 
 void VulkanEngine::init_vulkan()
@@ -997,9 +1061,9 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 	//make a model view matrix for rendering the object
 	//camera view
 
-	glm::mat4 view = glm::translate(glm::mat4(1.f), glm::vec3(_sceneParameters.cameraPosition));
+	glm::mat4 view = camera.GetViewMatrix();
 	//camera projection
-	glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(camera._zoom), 1700.f / 900.f, 0.1f, 200.0f);
 	projection[1][1] *= -1;
 
 	GPUCameraData camData;
@@ -1096,9 +1160,9 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 
 void VulkanEngine::init_scene()
 {
-	//glm::vec3 camPos = { 0.f,-15.f,-30.f };
-	glm::vec3 camPos = { 0.0f, 0.0f, 0.0f };
-	_sceneParameters.cameraPosition = glm::vec4(camPos, 0);
+	camera = Camera();
+	camera._position = { 0.0f, 0.0f, 0.0f };
+	_sceneParameters.cameraPosition = glm::vec4(camera._position, 0);
 	_sceneParameters.lightColor = glm::vec4(23.47, 21.31, 20.79, 0);
 	_sceneParameters.lightPosition = glm::vec4(0, 0, 0, 0);
 
