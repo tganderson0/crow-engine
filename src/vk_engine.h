@@ -62,7 +62,7 @@ public:
 	bool isInitialized{ false };
 	int frameNumber{ 0 };
 
-	VkExtent2D windowExtent{ 1700 , 900 };
+	VkExtent2D _windowExtent{ 1700 , 900 };
 
 	struct SDL_Window* _window{ nullptr };
 
@@ -87,7 +87,10 @@ public:
 
 	VmaAllocator _allocator;
 
+
+	// Draw resource
 	AllocatedImage _drawImage;
+	AllocatedImage _depthImage;
 
 	// Descriptor sets
 	DescriptorAllocator globalDescriptorAllocator;
@@ -100,6 +103,8 @@ public:
 	VkPipeline _gradientPipeline;
 	VkPipelineLayout _trianglePipelineLayout;
 	VkPipeline _trianglePipeline;
+	VkPipelineLayout _meshPipelineLayout;
+	VkPipeline _meshPipeline;
 
 	// immediate submit structures
 	VkFence _immFence;
@@ -110,6 +115,8 @@ public:
 	std::vector<ComputeEffect> backgroundEffects;
 	int currentBackgroundEffect{ 0 };
 
+private:
+	GPUMeshBuffers rectangle;
 
 public:
 	//initializes everything in the engine
@@ -136,8 +143,16 @@ private:
 	void init_descriptors();
 	void init_pipelines();
 	void init_imgui();
+	void init_background_pipelines();
 	void init_triangle_pipeline();
+	void init_mesh_pipeline();
+	void init_default_data();
 	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 	void draw_geometry(VkCommandBuffer cmd);
+
+	AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+	void destroy_buffer(const AllocatedBuffer& buffer);
+
+	GPUMeshBuffers upload_mesh(std::span<uint32_t> indices, std::span<Vertex> vertices);
 };
