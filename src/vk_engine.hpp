@@ -177,6 +177,7 @@ public:
 	// mouse input
 	double mouse_x, mouse_y;
 	double scroll_offset_x, scroll_offset_y;
+	bool right_mouse_down = false;
 
 private:
 	std::chrono::time_point<std::chrono::steady_clock> last_time;

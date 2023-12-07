@@ -58,6 +58,23 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 	app->scroll_offset_y = yoffset;
 }
 
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT)
+	{
+		auto app = reinterpret_cast<VulkanEngine*>(glfwGetWindowUserPointer(window));
+		app->right_mouse_down = action == GLFW_PRESS;
+		if (action == GLFW_PRESS)
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+		}
+		else
+		{
+			glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+		}
+	}
+}
+
 
 void VulkanEngine::init()
 {
@@ -67,6 +84,7 @@ void VulkanEngine::init()
 	glfwSetWindowUserPointer(_window, this);
 	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 	glfwSetScrollCallback(_window, scroll_callback);
+	glfwSetMouseButtonCallback(_window, mouse_button_callback);
 
 	init_vulkan();
 
@@ -261,30 +279,35 @@ void VulkanEngine::run()
 void VulkanEngine::handle_input()
 {
 	const float cameraSpeed = 0.05f;
-	if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
+
+	if (right_mouse_down)
 	{
-		camera.ProcessKeyboard(CameraMovement::FORWARD, delta_time);
+		if (glfwGetKey(_window, GLFW_KEY_W) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::FORWARD, delta_time);
+		}
+		if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::LEFT, delta_time);
+		}
+		if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::BACKWARD, delta_time);
+		}
+		if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::RIGHT, delta_time);
+		}
+		if (glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::DOWN, delta_time);
+		}
+		if (glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS)
+		{
+			camera.ProcessKeyboard(CameraMovement::UP, delta_time);
+		}
 	}
-	if (glfwGetKey(_window, GLFW_KEY_A) == GLFW_PRESS)
-	{
-		camera.ProcessKeyboard(CameraMovement::LEFT, delta_time);
-	}
-	if (glfwGetKey(_window, GLFW_KEY_S) == GLFW_PRESS)
-	{
-		camera.ProcessKeyboard(CameraMovement::BACKWARD, delta_time);
-	}
-	if (glfwGetKey(_window, GLFW_KEY_D) == GLFW_PRESS)
-	{
-		camera.ProcessKeyboard(CameraMovement::RIGHT, delta_time);
-	}
-	if (glfwGetKey(_window, GLFW_KEY_Q) == GLFW_PRESS)
-	{
-		camera.ProcessKeyboard(CameraMovement::DOWN, delta_time);
-	}
-	if (glfwGetKey(_window, GLFW_KEY_E) == GLFW_PRESS)
-	{
-		camera.ProcessKeyboard(CameraMovement::UP, delta_time);
-	}
+	
 
 	double current_x, current_y;
 	glfwGetCursorPos(_window, &current_x, &current_y);
@@ -294,8 +317,11 @@ void VulkanEngine::handle_input()
 	mouse_x = current_x;
 	mouse_y = current_y;
 
-	camera.ProcessMouseMovement(delta_cursor_x, delta_cursor_y, true);
-	camera.ProcessMouseScroll(scroll_offset_y);
+	if (right_mouse_down)
+	{
+		camera.ProcessMouseMovement(delta_cursor_x, delta_cursor_y, true);
+		camera.ProcessMouseScroll(scroll_offset_y);
+	}
 
 	scroll_offset_x = 0.0f;
 	scroll_offset_y = 0.0f;
@@ -918,12 +944,16 @@ void VulkanEngine::load_meshes()
 	Mesh damaged_helmet{};
 	damaged_helmet.load_from_obj("models/damagedhelmet.obj");
 
+	Mesh bottle{};
+	bottle.load_from_obj("models/bottle.obj");
+
 	upload_mesh(_triangleMesh);
 	upload_mesh(_monkeyMesh);
 	upload_mesh(lostEmpire);
 	upload_mesh(lantern);
 	upload_mesh(box);
 	upload_mesh(damaged_helmet);
+	upload_mesh(bottle);
 
 	//note that we are copying them. Eventually we will delete the hardcoded _monkey and _triangle meshes, so it's no problem now.
 	_meshes["monkey"] = _monkeyMesh;
@@ -932,6 +962,7 @@ void VulkanEngine::load_meshes()
 	_meshes["lantern"] = lantern;
 	_meshes["box"] = box;
 	_meshes["damaged_helmet"] = damaged_helmet;
+	_meshes["bottle"] = bottle;
 }
 
 void VulkanEngine::upload_mesh(Mesh& mesh)
@@ -1083,7 +1114,6 @@ void VulkanEngine::draw_objects(VkCommandBuffer cmd, RenderObject* first, int co
 	// Update GPU data
 
 	// Camera and global light positions
-	
 
 	char* sceneData;
 	vmaMapMemory(_allocator, _sceneParameterBuffer._allocation, (void**)&sceneData);
@@ -1171,12 +1201,18 @@ void VulkanEngine::init_scene()
 	//lantern.material = get_material("texturedmesh");
 	//lantern.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
-	RenderObject helmet;
-	helmet.mesh = get_mesh("damaged_helmet");
-	helmet.material = get_material("texturedmesh");
-	helmet.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
+	//RenderObject helmet;
+	//helmet.mesh = get_mesh("damaged_helmet");
+	//helmet.material = get_material("texturedmesh");
+	//helmet.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
 
-	_renderables.push_back(helmet);
+	RenderObject bottle;
+	bottle.mesh = get_mesh("bottle");
+	bottle.material = get_material("texturedmesh");
+	bottle.transformMatrix = glm::translate(glm::mat4{ 1.0 }, glm::vec3(0, 0, -15));
+	bottle.transformMatrix = glm::scale(bottle.transformMatrix, glm::vec3(10, 10, 10));
+
+	_renderables.push_back(bottle);
 
 	RenderObject skybox;
 	skybox.mesh = get_mesh("box");
@@ -1220,10 +1256,10 @@ void VulkanEngine::init_scene()
 
 	// Loading PBR textures!!!!
 	std::vector<VkDescriptorImageInfo> imageDescriptors{
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-		vkinit::descriptor_image_info(blockySampler, _loadedTextures["helmet_metalroughness"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["bottle_color"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["bottle_emissive"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["bottle_normal"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+		vkinit::descriptor_image_info(blockySampler, _loadedTextures["bottle_metalroughness"].imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
 	};
 
 	// Cubemap textures!!!!
@@ -1523,15 +1559,20 @@ void VulkanEngine::load_cubemap(VkFormat imageFormat, const char* textureName, s
 
 void VulkanEngine::load_images()
 {
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_color", "textures/lantern/Lantern_baseColor.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_emissive", "textures/lantern/Lantern_emissive.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_normal", "textures/lantern/Lantern_normal.png");
-	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "pbr_roughnessmetal", "textures/lantern/Lantern_roughnessMetallic.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "lantern_color", "textures/lantern/Lantern_baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "lantern_emissive", "textures/lantern/Lantern_emissive.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "lantern_normal", "textures/lantern/Lantern_normal.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "lantern_metalroughness", "textures/lantern/Lantern_roughnessMetallic.png");
 
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_color", "textures/damaged_helmet/Default_albedo.jpg");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_emissive", "textures/damaged_helmet/Default_emissive.jpg");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_normal", "textures/damaged_helmet/Default_normal.jpg");
 	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "helmet_metalroughness", "textures/damaged_helmet/Default_metalRoughness.jpg");
+
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "bottle_color", "textures/bottle/baseColor.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "bottle_emissive", "textures/bottle/emissive.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "bottle_normal", "textures/bottle/normal.png");
+	load_texture(VK_FORMAT_R8G8B8A8_SRGB, "bottle_metalroughness", "textures/bottle/occlusionRoughnessMetallic.png");
 
 
 	load_cubemap(VK_FORMAT_R8G8B8A8_SRGB, "yokohama_cubemap", {

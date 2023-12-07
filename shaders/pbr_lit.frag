@@ -68,10 +68,9 @@ void main()
   vec3 V = normalize(sceneData.cameraPosition.xyz - inWorldPos);
   
   vec3 albedo = pow(texture(colorMap, texCoord).rgb, vec3(2.2));
-  float roughness = texture(roughnessMetallicMap, texCoord).b;
-  float metallic = texture(roughnessMetallicMap, texCoord).g;
-  // float ao = texture(roughnessMetallicMap, texCoord).b;
-  float ao = 0.1;
+  float roughness = texture(roughnessMetallicMap, texCoord).g;
+  float metallic = texture(roughnessMetallicMap, texCoord).b;
+  float ao = texture(roughnessMetallicMap, texCoord).r;
   
   vec3 F0 = vec3(0.04);
   F0 = mix(F0, albedo, roughness);
