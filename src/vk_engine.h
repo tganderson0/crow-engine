@@ -98,6 +98,8 @@ public:
 	// Pipelines
 	VkPipelineLayout _gradientPipelineLayout;
 	VkPipeline _gradientPipeline;
+	VkPipelineLayout _trianglePipelineLayout;
+	VkPipeline _trianglePipeline;
 
 	// immediate submit structures
 	VkFence _immFence;
@@ -134,6 +136,8 @@ private:
 	void init_descriptors();
 	void init_pipelines();
 	void init_imgui();
-	void draw_main(VkCommandBuffer cmd);
+	void init_triangle_pipeline();
+	void draw_background(VkCommandBuffer cmd);
 	void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
+	void draw_geometry(VkCommandBuffer cmd);
 };
