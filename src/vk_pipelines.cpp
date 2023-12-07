@@ -1,11 +1,14 @@
 ﻿#include <vk_pipelines.h>
-#include <iostream>
+
 #include <fstream>
-#include <fmt/core.h>
-#include <vk_initializers.h>
+#include <iostream>
+#include "vk_initializers.h"
+
 
 void PipelineBuilder::clear()
 {
+    //clear all of the structs we need back to 0 with their correct stype	
+
     _inputAssembly = { .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
 
     _rasterizer = { .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
@@ -46,13 +49,13 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
     colorBlending.pAttachments = &_colorBlendAttachment;
 
 
-    // completely clear VertexInputStateCreateInfo, as we have no need for it
+    //completely clear VertexInputStateCreateInfo, as we have no need for it
     VkPipelineVertexInputStateCreateInfo _vertexInputInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO };
 
 
-    // build the actual pipeline
-    // we now use all of the info structs we have been writing into into this one
-    // to create the pipeline
+        // build the actual pipeline
+        // we now use all of the info structs we have been writing into into this one
+        // to create the pipeline
     VkGraphicsPipelineCreateInfo pipelineInfo = { .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
     //connect the renderInfo to the pNext extension mechanism
     pipelineInfo.pNext = &_renderInfo;
@@ -76,8 +79,8 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
 
     pipelineInfo.pDynamicState = &dynamicInfo;
 
-    // its easy to error out on create graphics pipeline, so we handle it a bit
-    // better than the common VK_CHECK case
+        // its easy to error out on create graphics pipeline, so we handle it a bit
+        // better than the common VK_CHECK case
     VkPipeline newPipeline;
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
         nullptr, &newPipeline)
@@ -88,53 +91,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
     else {
         return newPipeline;
     }
-}
 
-bool vkutil::load_shader_module(const char* filePath,
-    VkDevice device,
-    VkShaderModule* outShaderModule)
-{
-    // open the file. With cursor at the end
-    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
-
-    if (!file.is_open()) {
-        return false;
-    }
-
-    // find what the size of the file is by looking up the location of the cursor
-    // because the cursor is at the end, it gives the size directly in bytes
-    size_t fileSize = (size_t)file.tellg();
-
-    // spirv expects the buffer to be on uint32, so make sure to reserve a int
-    // vector big enough for the entire file
-    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-    // put file cursor at beginning
-    file.seekg(0);
-
-    // load the entire file into the buffer
-    file.read((char*)buffer.data(), fileSize);
-
-    // now that the file is loaded into the buffer, we can close it
-    file.close();
-
-    // create a new shader module, using the buffer we loaded
-    VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.pNext = nullptr;
-
-    // codeSize has to be in bytes, so multply the ints in the buffer by size of
-    // int to know the real size of the buffer
-    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-    createInfo.pCode = buffer.data();
-
-    // check that the creation goes well.
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        return false;
-    }
-    *outShaderModule = shaderModule;
-    return true;
 }
 
 void PipelineBuilder::set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
@@ -188,6 +145,30 @@ void PipelineBuilder::disable_blending()
     _colorBlendAttachment.blendEnable = VK_FALSE;
 }
 
+void PipelineBuilder::enable_blending_additive()
+{
+    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    _colorBlendAttachment.blendEnable = VK_TRUE;
+    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
+
+void PipelineBuilder::enable_blending_alphablend()
+{
+    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    _colorBlendAttachment.blendEnable = VK_TRUE;
+    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+}
+
 void PipelineBuilder::set_color_attachment_format(VkFormat format)
 {
     _colorAttachmentformat = format;
@@ -214,30 +195,6 @@ void PipelineBuilder::disable_depthtest()
     _depthStencil.maxDepthBounds = 1.f;
 }
 
-void PipelineBuilder::enable_blending_additive()
-{
-    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    _colorBlendAttachment.blendEnable = VK_TRUE;
-    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-}
-
-void PipelineBuilder::enable_blending_alphablend()
-{
-    _colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    _colorBlendAttachment.blendEnable = VK_TRUE;
-    _colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-    _colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-    _colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-    _colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    _colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    _colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-}
-
 void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op)
 {
     _depthStencil.depthTestEnable = VK_TRUE;
@@ -249,4 +206,51 @@ void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op)
     _depthStencil.back = {};
     _depthStencil.minDepthBounds = 0.f;
     _depthStencil.maxDepthBounds = 1.f;
+}
+
+bool vkutil::load_shader_module(const char* filePath,
+    VkDevice device,
+    VkShaderModule* outShaderModule)
+{
+    // open the file. With cursor at the end
+    std::ifstream file(filePath, std::ios::ate | std::ios::binary);
+
+    if (!file.is_open()) {
+        return false;
+    }
+
+    // find what the size of the file is by looking up the location of the cursor
+    // because the cursor is at the end, it gives the size directly in bytes
+    size_t fileSize = (size_t)file.tellg();
+
+    // spirv expects the buffer to be on uint32, so make sure to reserve a int
+    // vector big enough for the entire file
+    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+    // put file cursor at beginning
+    file.seekg(0);
+
+    // load the entire file into the buffer
+    file.read((char*)buffer.data(), fileSize);
+
+    // now that the file is loaded into the buffer, we can close it
+    file.close();
+
+    // create a new shader module, using the buffer we loaded
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.pNext = nullptr;
+
+    // codeSize has to be in bytes, so multply the ints in the buffer by size of
+    // int to know the real size of the buffer
+    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+    createInfo.pCode = buffer.data();
+
+    // check that the creation goes well.
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        return false;
+    }
+    *outShaderModule = shaderModule;
+    return true;
 }

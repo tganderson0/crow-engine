@@ -1,6 +1,9 @@
-﻿#pragma once 
+﻿#pragma once
+
+#include <vk_types.h>
 
 class PipelineBuilder {
+
 public:
     std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
 
@@ -13,12 +16,12 @@ public:
     VkPipelineRenderingCreateInfo _renderInfo;
     VkFormat _colorAttachmentformat;
 
-public:
     PipelineBuilder() { clear(); }
 
     void clear();
 
     VkPipeline build_pipeline(VkDevice device);
+
     void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
     void set_input_topology(VkPrimitiveTopology topology);
     void set_polygon_mode(VkPolygonMode mode);
@@ -32,9 +35,8 @@ public:
     void set_depth_format(VkFormat format);
     void disable_depthtest();
     void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
-
 };
 
 namespace vkutil {
     bool load_shader_module(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
-};
+}

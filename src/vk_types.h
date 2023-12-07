@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿
+#pragma once
 
 #include <memory>
 #include <optional>
@@ -14,9 +15,10 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
-#include <vk_mem_alloc.h>
+#include "vk_mem_alloc.h"
 
 
+// we will add our main reusable types here
 struct AllocatedImage {
     VkImage image;
     VkImageView imageView;
@@ -64,7 +66,7 @@ struct MaterialInstance {
     MaterialPass passType;
 };
 
-
+//> vbuf_types
 struct Vertex {
 
     glm::vec3 position;
