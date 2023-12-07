@@ -4,6 +4,17 @@
 #pragma once
 
 #include <vk_types.h>
+#include <vector>
+
+struct FrameData {
+	VkCommandPool _commandPool;
+	VkCommandBuffer _mainCommandBuffer;
+
+	VkSemaphore _swapchainSemaphore, _renderSemaphore;
+	VkFence _renderFence;
+};
+
+constexpr unsigned int FRAME_OVERLAP = 2;
 
 class VulkanEngine {
 public:
@@ -21,6 +32,17 @@ public:
 	VkDevice _device;
 	VkSurfaceKHR _surface;
 
+	// Swapchain
+	VkSwapchainKHR _swapchain;
+	VkFormat _swapchainImageFormat;
+
+	std::vector<VkImage> _swapchainImages;
+	std::vector<VkImageView> _swapchainImageViews;
+
+	FrameData _frames[FRAME_OVERLAP];
+	VkQueue _graphicsQueue;
+	uint32_t _graphicsQueueFamily;
+
 public:
 	//initializes everything in the engine
 	void init();
@@ -33,6 +55,8 @@ public:
 
 	//run main loop
 	void run();
+
+	FrameData& get_current_frame() { return _frames[frameNumber % FRAME_OVERLAP]; }
 
 private:
 	void init_vulkan();
