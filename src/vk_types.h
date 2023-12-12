@@ -1,5 +1,4 @@
-﻿
-#pragma once
+﻿#pragma once
 
 #include <memory>
 #include <optional>
@@ -9,13 +8,12 @@
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
+#include <vk_mem_alloc.h>
+
 #include <fmt/core.h>
 
-//#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
-
-#include "vk_mem_alloc.h"
 
 
 // we will add our main reusable types here
@@ -66,7 +64,7 @@ struct MaterialInstance {
     MaterialPass passType;
 };
 
-//> vbuf_types
+
 struct Vertex {
 
     glm::vec3 position;
@@ -89,7 +87,6 @@ struct GPUDrawPushConstants {
     glm::mat4 worldMatrix;
     VkDeviceAddress vertexBuffer;
 };
-
 
 struct DrawContext;
 

@@ -71,6 +71,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device)
     pipelineInfo.pDepthStencilState = &_depthStencil;
     pipelineInfo.layout = _pipelineLayout;
 
+
     VkDynamicState state[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
 
     VkPipelineDynamicStateCreateInfo dynamicInfo = { .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };

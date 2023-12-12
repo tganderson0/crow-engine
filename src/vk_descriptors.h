@@ -1,4 +1,5 @@
 ﻿#pragma once
+
 #include <vector>
 #include <vk_types.h>
 #include <deque>
@@ -14,7 +15,6 @@ struct DescriptorLayoutBuilder {
     VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages);
 };
 
-
 struct DescriptorWriter {
     std::deque<VkDescriptorImageInfo> imageInfos;
     std::deque<VkDescriptorBufferInfo> bufferInfos;
@@ -26,7 +26,6 @@ struct DescriptorWriter {
     void clear();
     void update_set(VkDevice device, VkDescriptorSet set);
 };
-
 
 struct DescriptorAllocator {
 
@@ -43,7 +42,6 @@ struct DescriptorAllocator {
 
     VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout);
 };
-
 
 struct DescriptorAllocatorGrowable {
 public:

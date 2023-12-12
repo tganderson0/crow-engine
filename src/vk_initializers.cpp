@@ -1,6 +1,5 @@
 ﻿#include <vk_initializers.h>
 
-
 VkCommandPoolCreateInfo vkinit::command_pool_create_info(uint32_t queueFamilyIndex,
     VkCommandPoolCreateFlags flags /*= 0*/)
 {
@@ -100,7 +99,6 @@ VkSubmitInfo2 vkinit::submit_info(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSub
     return info;
 }
 
-
 VkPresentInfoKHR vkinit::present_info()
 {
     VkPresentInfoKHR info = {};
@@ -115,7 +113,6 @@ VkPresentInfoKHR vkinit::present_info()
 
     return info;
 }
-
 
 VkRenderingAttachmentInfo vkinit::attachment_info(
     VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/)
@@ -250,6 +247,7 @@ VkDescriptorBufferInfo vkinit::buffer_info(VkBuffer buffer, VkDeviceSize offset,
     binfo.range = range;
     return binfo;
 }
+
 
 VkImageCreateInfo vkinit::image_create_info(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {

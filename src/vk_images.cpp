@@ -33,6 +33,7 @@ void vkutil::transition_image(VkCommandBuffer cmd, VkImage image, VkImageLayout 
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
+
 void vkutil::copy_image_to_image(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent3D imageSize)
 {
     VkImageBlit2 blitRegion{};
