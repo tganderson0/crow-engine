@@ -1,6 +1,7 @@
 #include "camera.h"
 #include "glm/gtx/quaternion.hpp"
 #include "glm/gtx/transform.hpp"
+#include <iostream>
 
 glm::mat4 Camera::getViewMatrix() const
 {
@@ -44,10 +45,17 @@ void Camera::processSDLEvent(SDL_Event& e)
         yaw += (float)e.motion.xrel / 200.f;
         pitch -= (float)e.motion.yrel / 200.f;
     }
+
+    if (e.type == SDL_MOUSEWHEEL)
+    {
+        movementSpeed += 0.05 * e.wheel.y;
+
+        if (movementSpeed < 0) movementSpeed = 0;
+    }
 }
 
 void Camera::update()
 {
     glm::mat4 cameraRotation = getRotationMatrix();
-    position += glm::vec3(cameraRotation * glm::vec4(velocity * 0.5f, 0.f));
+    position += glm::vec3(cameraRotation * glm::vec4(velocity * movementSpeed, 0.f));
 }

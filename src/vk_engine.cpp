@@ -153,11 +153,11 @@ void VulkanEngine::init_default_data() {
     vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
 
     // for linear filtering uncomment
-    //sampl.magFilter = VK_FILTER_LINEAR;
-    //sampl.minFilter = VK_FILTER_LINEAR;
+    sampl.magFilter = VK_FILTER_LINEAR;
+    sampl.minFilter = VK_FILTER_LINEAR;
 
-    sampl.magFilter = VK_FILTER_CUBIC_EXT;
-    sampl.minFilter = VK_FILTER_CUBIC_EXT;
+    //sampl.magFilter = VK_FILTER_CUBIC_EXT;
+    //sampl.minFilter = VK_FILTER_CUBIC_EXT;
     vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
 }
 
@@ -1037,7 +1037,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\old_rusty_car.glb" };
+    std::string structurePath = { "..\\..\\assets\\hotel.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());
