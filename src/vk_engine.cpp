@@ -152,8 +152,12 @@ void VulkanEngine::init_default_data() {
 
     vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerNearest);
 
-    sampl.magFilter = VK_FILTER_LINEAR;
-    sampl.minFilter = VK_FILTER_LINEAR;
+    // for linear filtering uncomment
+    //sampl.magFilter = VK_FILTER_LINEAR;
+    //sampl.minFilter = VK_FILTER_LINEAR;
+
+    sampl.magFilter = VK_FILTER_CUBIC_EXT;
+    sampl.minFilter = VK_FILTER_CUBIC_EXT;
     vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
 }
 
