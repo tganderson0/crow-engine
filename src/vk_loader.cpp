@@ -12,6 +12,32 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/util.hpp>
 
+std::optional<AllocatedImage> load_image_from_file(VulkanEngine* engine, const char* filepath)
+{
+    AllocatedImage newImage{};
+    int width, height, nrChannels;
+
+    unsigned char* data = stbi_load(filepath, &width, &height, &nrChannels, 4);
+    if (data) {
+        VkExtent3D imagesize;
+        imagesize.width = width;
+        imagesize.height = height;
+        imagesize.depth = 1;
+        newImage = engine->create_image(data, imagesize, VK_FORMAT_R8G8B8A8_SNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+        stbi_image_free(data);
+    }
+
+    // if any of the attempts to load the data failed, we havent written the image
+    // so handle is null
+    if (newImage.image == VK_NULL_HANDLE) {
+        return {};
+    }
+    else {
+        return newImage;
+    }
+
+}
+
 std::optional<AllocatedImage> load_image(VulkanEngine* engine, fastgltf::Asset& asset, fastgltf::Image& image)
 {
     AllocatedImage newImage{};
@@ -217,6 +243,8 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
         materialResources.colorSampler = engine->_defaultSamplerLinear;
         materialResources.metalRoughImage = engine->_whiteImage;
         materialResources.metalRoughSampler = engine->_defaultSamplerLinear;
+        materialResources.brdfLut = engine->_brdfLUT;
+        materialResources.brdfLutSampler = engine->_defaultSamplerLinear;
 
         // set the uniform buffer for the material data
         materialResources.dataBuffer = file.materialDataBuffer.buffer;

@@ -1,5 +1,7 @@
 #version 450
 
+// TODO: Need to implement the prefilter map and irradiance maps
+
 #extension GL_GOOGLE_include_directive : require
 #include "input_structures.glsl"
 
@@ -60,11 +62,17 @@ void main()
   kD *= 1.0 - metallicness;
 
   // vec3 irrad = texture(irradianceMap, normal).rgb;
-  vec3 irrad = vec3(1.0); // TODO: Should have an irradiance map
+  vec3 irrad = vec3(0.5); // TODO: Should have an irradiance map
   vec3 diff = irrad * albedo;
 
-  // vec3 ambient = (kD * diff + specular);
-  vec3 ambient = vec3(0.05);
+  // BRDF Lut
+  const float MAX_REFLECTION_LOD = 1.0;
+  // vec3 prefilteredColor = textureLod()
+  vec2 brdf = texture(brdfLutTex, vec2(max(dot(inNormal, viewDir), 0.0), roughness)).rg;
+  vec3 specular = vec3(0.2) * (kS * brdf.x + brdf.y);
+
+  vec3 ambient = (kD * diff + specular);
+  // vec3 ambient = vec3(0.01);
 
   vec3 color = ambient + irradiance;
 
@@ -74,6 +82,8 @@ void main()
   color = pow(color, vec3(1.0 / 2.2));
 
   outFragColor = vec4(color, 1.0);
+
+  // outFragColor = vec4(texture(brdfLutTex, vec2(max(dot(inNormal, viewDir), 0.0), roughness)), 1.0);
 }
 
 // https://github.com/SpideyLee2/MR3/blob/master/MR3/shaders/pbr_models.frag

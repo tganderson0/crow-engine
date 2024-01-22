@@ -64,4 +64,6 @@ private:
     void clearAll();
 };
 
+std::optional<AllocatedImage> load_image_from_file(VulkanEngine* engine, const char* filepath);
+
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::string_view filePath);
