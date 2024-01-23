@@ -12,6 +12,54 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/util.hpp>
 
+// front, back, up, down, right, left (file order)
+std::optional<AllocatedImage> load_cubemap_from_file(VulkanEngine* engine, std::array<const char*, 6> files)
+{
+    AllocatedImage newImage{};
+    int texWidth, texHeight, texChannels;
+
+    stbi_uc* front;
+    stbi_uc* back;
+    stbi_uc* up;
+    stbi_uc* down;
+    stbi_uc* right;
+    stbi_uc* left;
+
+    front = stbi_load(files[0], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    back = stbi_load(files[1], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    up = stbi_load(files[2], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    down = stbi_load(files[3], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    right = stbi_load(files[4], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    left = stbi_load(files[5], &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+
+    VkDeviceSize imageSize = texWidth * texHeight * 4 * 6; // 6 images, rgba
+    VkDeviceSize layerSize = imageSize / 6;
+    VkFormat image_format = VK_FORMAT_R8G8B8A8_SRGB;
+
+    if (front && back && up && down && right && left)
+    {
+        VkExtent3D imagesize;
+        imagesize.width = texWidth;
+        imagesize.height = texHeight;
+        imagesize.depth = 1;
+        newImage = engine->create_cubemap_image({ front, back, up, down, right, left }, imagesize, VK_FORMAT_R8G8B8A8_SNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+        stbi_image_free(front);
+        stbi_image_free(back);
+        stbi_image_free(up);
+        stbi_image_free(down);
+        stbi_image_free(right);
+        stbi_image_free(left);
+    }
+
+    if (newImage.image == VK_NULL_HANDLE)
+    {
+        return {};
+    }
+    else {
+        return newImage;
+    }
+}
+
 std::optional<AllocatedImage> load_image_from_file(VulkanEngine* engine, const char* filepath)
 {
     AllocatedImage newImage{};

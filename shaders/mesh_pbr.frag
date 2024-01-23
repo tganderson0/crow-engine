@@ -24,8 +24,9 @@ vec3 fresnelApproxRoughness(vec3 h, vec3 v, vec3 f0, float roughness);
 void main()
 {
   vec3 albedo = pow(texture(colorTex, inUV).rgb, vec3(2.2));
-  float metallicness = texture(metalRoughTex, inUV).r;
+  float metallicness = texture(metalRoughTex, inUV).b;
   float roughness = texture(metalRoughTex, inUV).g;
+  float ao = texture(metalRoughTex, inUV).r;
 
   vec3 viewDir = normalize(sceneData.cameraPosition.xyz - worldPosition);
   vec3 f0 = mix(vec3(0.04), albedo, metallicness);
@@ -71,7 +72,7 @@ void main()
   vec2 brdf = texture(brdfLutTex, vec2(max(dot(inNormal, viewDir), 0.0), roughness)).rg;
   vec3 specular = vec3(0.2) * (kS * brdf.x + brdf.y);
 
-  vec3 ambient = (kD * diff + specular);
+  vec3 ambient = (kD * diff + specular) * ao;
   // vec3 ambient = vec3(0.01);
 
   vec3 color = ambient + irradiance;
@@ -83,7 +84,6 @@ void main()
 
   outFragColor = vec4(color, 1.0);
 
-  // outFragColor = vec4(texture(brdfLutTex, vec2(max(dot(inNormal, viewDir), 0.0), roughness)), 1.0);
 }
 
 // https://github.com/SpideyLee2/MR3/blob/master/MR3/shaders/pbr_models.frag

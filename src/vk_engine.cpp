@@ -151,6 +151,16 @@ void VulkanEngine::init_default_data() {
 
     _brdfLUT = load_image_from_file(this, "../../textures/brdf_lut.png").value();
 
+    // world cubemap load
+    //_skyboxCubemap = load_cubemap_from_file(this, {
+    //    "front",
+    //    "back",
+    //    "up",
+    //    "down",
+    //    "right",
+    //    "left"
+    //    }).value();
+
     VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
     sampl.magFilter = VK_FILTER_NEAREST;
@@ -753,6 +763,53 @@ AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat 
     return new_image;
 }
 
+AllocatedImage VulkanEngine::create_cubemap_image(std::array<void*, 6> data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage)
+{
+    size_t data_size = size.depth * size.width * size.height * 4 * 6; // 6 images, rgba
+    AllocatedBuffer uploadbuffer = create_buffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    size_t single_data_size = data_size / 6;
+
+    // copy each image to the right location
+    memcpy(uploadbuffer.info.pMappedData,                                            data[0], single_data_size);
+    memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size,     data[2], single_data_size);
+    memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 2, data[2], single_data_size);
+    memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 3, data[2], single_data_size);
+    memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 4, data[2], single_data_size);
+    memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 5, data[2], single_data_size);
+
+    AllocatedImage new_image = create_image(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+
+    immediate_submit([&](VkCommandBuffer cmd) {
+        vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        std::vector<VkBufferImageCopy> bufferCopyRegions;
+        for (uint32_t face = 0; face < 6; face++)
+        {
+            VkBufferImageCopy bufferCopyRegion = {};
+            bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            bufferCopyRegion.imageSubresource.mipLevel = 0;
+            bufferCopyRegion.imageSubresource.baseArrayLayer = face;
+            bufferCopyRegion.imageSubresource.layerCount = 1;
+            bufferCopyRegion.imageExtent.width = size.width;
+            bufferCopyRegion.imageExtent.height = size.height;
+            bufferCopyRegion.imageExtent.depth = 1;
+            bufferCopyRegion.bufferOffset = face * size.width * size.height * 4; // image size (rgba) * face number
+            bufferCopyRegions.push_back(bufferCopyRegion);
+        }
+
+        // copy the buffer into the image
+        vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
+
+        vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        });
+
+    destroy_buffer(uploadbuffer);
+
+    return new_image;
+}
+
 GPUMeshBuffers VulkanEngine::uploadMesh(std::span<uint32_t> indices, std::span<Vertex> vertices)
 {
     const size_t vertexBufferSize = vertices.size() * sizeof(Vertex);
@@ -1042,7 +1099,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\hotel.glb" };
+    std::string structurePath = { "..\\..\\assets\\old_rusty_car.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());

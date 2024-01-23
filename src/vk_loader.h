@@ -64,6 +64,14 @@ private:
     void clearAll();
 };
 
+/// <summary>
+/// Loads a cubemap given the 6 files
+/// </summary>
+/// <param name="engine"></param>
+/// <param name="files">The filenames of the cubemap, front, back, up, down, right, left for file order</param>
+/// <returns></returns>
+std::optional<AllocatedImage> load_cubemap_from_file(VulkanEngine* engine, std::array<const char*, 6> files);
+
 std::optional<AllocatedImage> load_image_from_file(VulkanEngine* engine, const char* filepath);
 
 std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::string_view filePath);

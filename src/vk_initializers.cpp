@@ -323,3 +323,24 @@ VkPipelineShaderStageCreateInfo vkinit::pipeline_shader_stage_create_info(VkShad
     info.pName = entry;
     return info;
 }
+
+VkImageCreateInfo vkinit::image_cubemap_create_info(VkFormat imageFormat, VkImageUsageFlags usageFlags, VkExtent3D extent)
+{
+    VkImageCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.pNext = nullptr;
+
+    info.imageType = VK_IMAGE_TYPE_2D;
+
+    info.format = imageFormat;
+    info.extent = extent;
+
+    info.mipLevels = 1;
+    info.arrayLayers = 6;
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.usage = usageFlags;
+    info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    return info;
+}

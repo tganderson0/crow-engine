@@ -56,4 +56,7 @@ namespace vkinit {
     VkPipelineColorBlendAttachmentState color_blend_attachment_state();
     VkPipelineRenderingCreateInfo pipeline_render_info(VkFormat* colorFormat);
     VkPipelineDepthStencilStateCreateInfo pipeline_depth_stencil_create_info();
+
+    VkImageCreateInfo image_cubemap_create_info(VkFormat imageFormat, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
 } // namespace vkinit

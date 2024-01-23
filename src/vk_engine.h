@@ -202,6 +202,7 @@ public:
     AllocatedImage _errorCheckerboardImage;
     AllocatedImage _defaultIrradianceMap;
     AllocatedImage _brdfLUT;
+    AllocatedImage _skyboxCubemap;
 
     VkSampler _defaultSamplerLinear;
     VkSampler _defaultSamplerNearest;
@@ -251,6 +252,8 @@ public:
     AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
     AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
+
+    AllocatedImage create_cubemap_image(std::array<void*, 6> data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
     void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
 
