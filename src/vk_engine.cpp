@@ -1099,7 +1099,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\old_rusty_car.glb" };
+    std::string structurePath = { "..\\..\\assets\\hotel.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());
@@ -1235,7 +1235,7 @@ void VulkanEngine::init_descriptors()
 void GLTFMetallic_Roughness::build_pipelines(VulkanEngine* engine)
 {
     VkShaderModule meshFragShader;
-    if (!vkutil::load_shader_module("../../shaders/mesh_pbr.frag.spv", engine->_device, &meshFragShader)) {
+    if (!vkutil::load_shader_module("../../shaders/mesh_pbr_no_ibl.frag.spv", engine->_device, &meshFragShader)) {
         fmt::println("Error when building the triangle fragment shader module");
     }
 
