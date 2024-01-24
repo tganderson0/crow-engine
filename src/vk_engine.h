@@ -250,6 +250,7 @@ public:
 
     AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
     AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
+    AllocatedImage create_cubemap_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
     AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 

@@ -152,14 +152,14 @@ void VulkanEngine::init_default_data() {
     _brdfLUT = load_image_from_file(this, "../../textures/brdf_lut.png").value();
 
     // world cubemap load
-    //_skyboxCubemap = load_cubemap_from_file(this, {
-    //    "front",
-    //    "back",
-    //    "up",
-    //    "down",
-    //    "right",
-    //    "left"
-    //    }).value();
+    _skyboxCubemap = load_cubemap_from_file(this, {
+        "../../textures/yokohama_skybox/negz.jpg",
+        "../../textures/yokohama_skybox/posz.jpg",
+        "../../textures/yokohama_skybox/posy.jpg",
+        "../../textures/yokohama_skybox/negy.jpg",
+        "../../textures/yokohama_skybox/posx.jpg",
+        "../../textures/yokohama_skybox/negx.jpg"
+        }).value();
 
     VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
@@ -727,6 +727,39 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkIm
     return newImage;
 }
 
+AllocatedImage VulkanEngine::create_cubemap_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage)
+{
+    AllocatedImage newImage;
+    newImage.imageFormat = format;
+    newImage.imageExtent = size;
+
+    VkImageCreateInfo img_info = vkinit::image_create_info(format, usage, size);
+    img_info.arrayLayers = 6;
+    img_info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    // always allocate images on dedicated GPU memory
+    VmaAllocationCreateInfo allocinfo = {};
+    allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    // allocate and create the image
+    VK_CHECK(vmaCreateImage(_allocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
+
+    // if the format is a depth format, we will need to have it use the correct
+    // aspect flag
+    VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+    if (format == VK_FORMAT_D32_SFLOAT) {
+        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
+
+    // build a image-view for the image
+    VkImageViewCreateInfo view_info = vkinit::imageview_create_info(format, newImage.image, aspectFlag);
+
+    VK_CHECK(vkCreateImageView(_device, &view_info, nullptr, &newImage.imageView));
+
+    return newImage;
+}
+
 AllocatedImage VulkanEngine::create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage)
 {
     size_t data_size = size.depth * size.width * size.height * 4;
@@ -778,10 +811,12 @@ AllocatedImage VulkanEngine::create_cubemap_image(std::array<void*, 6> data, VkE
     memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 4, data[2], single_data_size);
     memcpy(static_cast<char*>(uploadbuffer.info.pMappedData) + single_data_size * 5, data[2], single_data_size);
 
-    AllocatedImage new_image = create_image(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+    AllocatedImage new_image = create_cubemap_image(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
 
     immediate_submit([&](VkCommandBuffer cmd) {
-        vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkutil::transition_image_cubemap(cmd, new_image.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+        // todo: transition image assumes the wrong things, I need to write a transition image for cubemaps
 
         std::vector<VkBufferImageCopy> bufferCopyRegions;
         for (uint32_t face = 0; face < 6; face++)
@@ -801,7 +836,7 @@ AllocatedImage VulkanEngine::create_cubemap_image(std::array<void*, 6> data, VkE
         // copy the buffer into the image
         vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, static_cast<uint32_t>(bufferCopyRegions.size()), bufferCopyRegions.data());
 
-        vkutil::transition_image(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        vkutil::transition_image_cubemap(cmd, new_image.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         });
 
