@@ -1004,7 +1004,7 @@ void VulkanEngine::init_swapchain()
         //.use_default_format_selection()
         .set_desired_format(VkSurfaceFormatKHR{ .format = VK_FORMAT_B8G8R8A8_UNORM, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR })
         //use vsync present mode
-        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR)
+        .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) // TODO: Update this to allow for uncapped framerate
         .set_desired_extent(_windowExtent.width, _windowExtent.height)
         .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
         .build()
