@@ -18,6 +18,9 @@
 #include <vk_descriptors.h>
 #include <vk_loader.h>
 #include <vk_pipelines.h>
+
+#include <boost/asio.hpp>
+
 struct MeshAsset;
 namespace fastgltf {
     struct Mesh;
@@ -117,7 +120,7 @@ struct GLTFMetallic_Roughness {
         VkSampler metalRoughSampler;
         AllocatedImage brdfLut;
         VkSampler brdfLutSampler;
-        AllocatedImage skyboxImage;
+        //AllocatedImage skyboxImage;
         VkSampler skyboxSampler;
         VkBuffer dataBuffer;
         uint32_t dataBufferOffset;
@@ -220,6 +223,9 @@ public:
     std::vector<ComputeEffect> backgroundEffects;
     int currentBackgroundEffect{ 0 };
 
+    // TEMP THINGS
+    bool saveImage = true;
+
     // singleton style getter.multiple engines is not supported
     static VulkanEngine& Get();
 
@@ -254,6 +260,8 @@ public:
     AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
     AllocatedImage create_cubemap_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
+    
+
     AllocatedImage create_image(void* data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
     AllocatedImage create_cubemap_image(std::array<void*, 6> data, VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
@@ -285,4 +293,10 @@ private:
     void init_imgui();
 
     void init_default_data();
+
+    void vk_image_to_cpu(VkCommandBuffer cmd, AllocatedImage& image, std::vector<char>& out_image);
+
+    void save_to_ppm_file(std::vector<char>& imageBytes, AllocatedImage original_image);
+
+    PFN_vkCopyImageToMemoryEXT vkCopyImageToMemoryEXT;
 };

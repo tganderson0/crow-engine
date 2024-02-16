@@ -293,7 +293,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> loadGltf(VulkanEngine* engine, std::s
         materialResources.metalRoughSampler = engine->_defaultSamplerLinear;
         materialResources.brdfLut = engine->_brdfLUT;
         materialResources.brdfLutSampler = engine->_defaultSamplerLinear;
-        materialResources.skyboxImage = engine->_skyboxCubemap;
+        //materialResources.skyboxImage = engine->_skyboxCubemap;
         materialResources.skyboxSampler = engine->_defaultSamplerLinear;
 
         // set the uniform buffer for the material data

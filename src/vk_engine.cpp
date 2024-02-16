@@ -152,14 +152,14 @@ void VulkanEngine::init_default_data() {
     _brdfLUT = load_image_from_file(this, "../../textures/brdf_lut.png").value();
 
     // world cubemap load
-    _skyboxCubemap = load_cubemap_from_file(this, {
-        "../../textures/yokohama_skybox/negz.jpg",
-        "../../textures/yokohama_skybox/posz.jpg",
-        "../../textures/yokohama_skybox/posy.jpg",
-        "../../textures/yokohama_skybox/negy.jpg",
-        "../../textures/yokohama_skybox/posx.jpg",
-        "../../textures/yokohama_skybox/negx.jpg"
-        }).value();
+    //_skyboxCubemap = load_cubemap_from_file(this, {
+    //    "../../textures/yokohama_skybox/negz.jpg",
+    //    "../../textures/yokohama_skybox/posz.jpg",
+    //    "../../textures/yokohama_skybox/posy.jpg",
+    //    "../../textures/yokohama_skybox/negy.jpg",
+    //    "../../textures/yokohama_skybox/posx.jpg",
+    //    "../../textures/yokohama_skybox/negx.jpg"
+    //    }).value();
 
     VkSamplerCreateInfo sampl = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 
@@ -377,7 +377,6 @@ void VulkanEngine::draw()
     draw_main(cmd);
 
     //transtion the draw image and the swapchain image into their correct transfer layouts
-    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkExtent3D extent;
@@ -385,8 +384,31 @@ void VulkanEngine::draw()
     extent.width = _windowExtent.width;
     extent.depth = 1;
 
+
+    // copy the image from the draw image to the CPU
+
+    AllocatedImage copyImage = create_image(extent, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
+    
+    immediate_submit([&](VkCommandBuffer cmd) {
+        vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        vkutil::transition_image(cmd, copyImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkutil::copy_image_to_image(cmd, _drawImage.image, copyImage.image, extent);
+        });
+
+    std::vector<char> outImage;
+    vk_image_to_cpu(cmd, copyImage, outImage);
+
+    get_current_frame()._deletionQueue.push_function([=, this]() {
+        vkDestroyImageView(_device, copyImage.imageView, nullptr);
+        vmaDestroyImage(_allocator, copyImage.image, _drawImage.allocation);
+        });
+
+    //save_to_ppm_file(outImage, _drawImage);
+
     // execute a copy from the draw image into the swapchain
     vkutil::copy_image_to_image(cmd, _drawImage.image, _swapchainImages[swapchainImageIndex], extent);
+
+
 
     // set swapchain image layout to Attachment Optimal so we can draw it
     vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -969,11 +991,31 @@ void VulkanEngine::init_vulkan()
     // use vkbootstrap to select a gpu.
     // We want a gpu that can write to the SDL surface and supports vulkan 1.2
     vkb::PhysicalDeviceSelector selector{ vkb_inst };
-    vkb::PhysicalDevice physicalDevice = selector.set_minimum_version(1, 3).set_required_features_13(features13).set_required_features_12(features12).set_surface(_surface).select().value();
+
+    VkPhysicalDeviceHostImageCopyFeaturesEXT imageCopyFeatures{};
+    imageCopyFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_IMAGE_COPY_FEATURES_EXT;
+    imageCopyFeatures.hostImageCopy = true;
+
+    vkb::PhysicalDevice physicalDevice = selector.set_minimum_version(1, 3)
+        .set_required_features_13(features13)
+        .set_required_features_12(features12)
+        .add_required_extension(VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME)
+        .add_required_extension(VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME)
+        .add_required_extension(VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME)
+        .add_required_extension_features(imageCopyFeatures)
+        //.add_required_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+        //.add_required_extensions({ VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME, VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME, VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME })
+        .set_surface(_surface).select().value();
 
     // physicalDevice.features.
     // create the final vulkan device
 
+    for (auto extension : physicalDevice.get_extensions())
+    {
+        std::cout << extension << std::endl;
+    }
+
+    
     vkb::DeviceBuilder deviceBuilder{ physicalDevice };
 
     vkb::Device vkbDevice = deviceBuilder.build().value();
@@ -986,6 +1028,8 @@ void VulkanEngine::init_vulkan()
     _graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
 
     _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
+
+    vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)vkGetDeviceProcAddr(_device, "vkCopyImageToMemoryEXT");
 
     // initialize the memory allocator
     VmaAllocatorCreateInfo allocatorInfo = {};
@@ -1134,7 +1178,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\hotel.glb" };
+    std::string structurePath = { "..\\..\\assets\\old_rusty_car.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());
@@ -1370,7 +1414,7 @@ MaterialInstance GLTFMetallic_Roughness::write_material(VkDevice device, Materia
     writer.write_image(1, resources.colorImage.imageView, resources.colorSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     writer.write_image(2, resources.metalRoughImage.imageView, resources.metalRoughSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     writer.write_image(3, resources.brdfLut.imageView, resources.brdfLutSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    writer.write_image(4, resources.skyboxImage.imageView, resources.skyboxSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    //writer.write_image(4, resources.skyboxImage.imageView, resources.skyboxSampler, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     writer.update_set(device, matData.materialSet);
 
@@ -1400,4 +1444,82 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
 
     // recurse down
     Node::Draw(topMatrix, ctx);
+}
+
+/// <summary>
+/// Copies a VkImage from the GPU after rendering to a std::vector<char> with the data on the CPU
+/// </summary>
+/// <param name="image"></param>
+/// <param name="out_image"></param>
+void VulkanEngine::vk_image_to_cpu(VkCommandBuffer cmd, AllocatedImage& image, std::vector<char>& out_image)
+{
+    VkExtent3D extent{};
+    extent.width = _windowExtent.width;
+    extent.height = _windowExtent.height;
+    extent.depth = 1;
+
+    VkImageSubresourceLayers layers{};
+    layers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    layers.mipLevel = 0;
+    layers.baseArrayLayer = 0;
+    layers.layerCount = 1;
+
+
+    out_image = std::vector<char>(extent.width * extent.height * 8);
+    VkImageToMemoryCopyEXT regions{};
+    regions.sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT;
+    regions.pHostPointer = out_image.data();
+    regions.imageExtent = extent;
+    regions.imageSubresource = layers;
+
+
+
+
+    VkCopyImageToMemoryInfoEXT copyImageInfo{};
+    copyImageInfo.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT;
+    copyImageInfo.pNext = VK_NULL_HANDLE;
+    copyImageInfo.srcImage = image.image;
+    copyImageInfo.srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    copyImageInfo.regionCount = 1;
+    copyImageInfo.pRegions = &regions;
+
+    vkCopyImageToMemoryEXT(_device, &copyImageInfo);
+
+    std::cout << "This is temporary " << std::endl;
+}
+
+void VulkanEngine::save_to_ppm_file(std::vector<char>& imageBytes, AllocatedImage original_image)
+{
+    if (!saveImage)
+    {
+        return;
+    }
+    saveImage = false;
+
+    const char* filename = "./headless.ppm";
+
+    VkImageSubresource subResource{};
+    subResource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    VkSubresourceLayout subResourceLayout;
+
+    vkGetImageSubresourceLayout(_device, original_image.image, &subResource, &subResourceLayout);
+
+    std::ofstream file(filename, std::ios::out | std::ios::binary);
+
+    // ppm header
+    file << "P6\n" << _windowExtent.height << "\n" << _windowExtent.width << "\n" << 255 << "\n";
+
+    //char* imagedata = imageBytes.data();
+
+    //for (int32_t y = 0; y < _windowExtent.height; y++) {
+    //    unsigned int* row = (unsigned int*)imagedata;
+    //    for (int32_t x = 0; x < _windowExtent.width; x++) {
+    //        file.write((char*)row, 3);
+    //        row++;
+    //    }
+    //    imagedata += subResourceLayout.rowPitch;
+    //}
+    file.close();
+
+    std::cout << "Saved image to " << filename << std::endl;
 }
