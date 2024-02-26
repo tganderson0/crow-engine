@@ -377,31 +377,13 @@ void VulkanEngine::draw()
     draw_main(cmd);
 
     //transtion the draw image and the swapchain image into their correct transfer layouts
+    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkutil::transition_image(cmd, _swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkExtent3D extent;
     extent.height = _windowExtent.height;
     extent.width = _windowExtent.width;
     extent.depth = 1;
-
-
-    // copy the image from the draw image to the CPU
-
-    AllocatedImage copyImage = create_image(extent, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_HOST_TRANSFER_BIT_EXT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT);
-    
-    immediate_submit([&](VkCommandBuffer cmd) {
-        vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-        vkutil::transition_image(cmd, copyImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        vkutil::copy_image_to_image(cmd, _drawImage.image, copyImage.image, extent);
-        });
-
-    std::vector<char> outImage;
-    vk_image_to_cpu(cmd, copyImage, outImage);
-
-    get_current_frame()._deletionQueue.push_function([=, this]() {
-        vkDestroyImageView(_device, copyImage.imageView, nullptr);
-        vmaDestroyImage(_allocator, copyImage.image, _drawImage.allocation);
-        });
 
     //save_to_ppm_file(outImage, _drawImage);
 
@@ -658,6 +640,14 @@ void VulkanEngine::run()
             ImGui::End();
         }
 
+        if (ImGui::Begin("Debug")) {
+            if (ImGui::Button("Screenshot"))
+            {
+                save_screenshot();
+            }
+            ImGui::End();
+        }
+
         ImGui::Render();
 
         // imgui commands
@@ -718,7 +708,7 @@ AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags
     return newBuffer;
 }
 
-AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage)
+AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool host_visible)
 {
     AllocatedImage newImage;
     newImage.imageFormat = format;
@@ -728,8 +718,15 @@ AllocatedImage VulkanEngine::create_image(VkExtent3D size, VkFormat format, VkIm
 
     // always allocate images on dedicated GPU memory
     VmaAllocationCreateInfo allocinfo = {};
-    allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    if (!host_visible)
+    {
+        allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    }
+    else
+    {
+        allocinfo.usage = VMA_MEMORY_USAGE_GPU_TO_CPU;
+    }
 
     // allocate and create the image
     VK_CHECK(vmaCreateImage(_allocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
@@ -1030,6 +1027,8 @@ void VulkanEngine::init_vulkan()
     _graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
 
     vkCopyImageToMemoryEXT = (PFN_vkCopyImageToMemoryEXT)vkGetDeviceProcAddr(_device, "vkCopyImageToMemoryEXT");
+
+    vkGetPhysicalDeviceMemoryProperties(_chosenGPU, &memoryProperties);
 
     // initialize the memory allocator
     VmaAllocatorCreateInfo allocatorInfo = {};
@@ -1446,80 +1445,124 @@ void MeshNode::Draw(const glm::mat4& topMatrix, DrawContext& ctx)
     Node::Draw(topMatrix, ctx);
 }
 
-/// <summary>
-/// Copies a VkImage from the GPU after rendering to a std::vector<char> with the data on the CPU
-/// </summary>
-/// <param name="image"></param>
-/// <param name="out_image"></param>
-void VulkanEngine::vk_image_to_cpu(VkCommandBuffer cmd, AllocatedImage& image, std::vector<char>& out_image)
+uint32_t VulkanEngine::get_memory_type(uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32* memTypeFound)
 {
+    for (uint32_t i = 0; i < memoryProperties.memoryTypeCount; i++)
+    {
+        if ((typeBits & 1) == 1)
+        {
+            if ((memoryProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            {
+                if (memTypeFound)
+                {
+                    *memTypeFound = true;
+                }
+                return i;
+            }
+        }
+        typeBits >>= 1;
+    }
+
+    if (memTypeFound)
+    {
+        *memTypeFound = false;
+        return 0;
+    }
+    else
+    {
+        throw std::runtime_error("Could not find a matching memory type");
+    }
+}
+
+void VulkanEngine::save_screenshot()
+{
+    bool screenshotSaved = false;
+    
+    VkImage srcImage = _swapchainImages[_frameNumber % FRAME_OVERLAP];
     VkExtent3D extent{};
     extent.width = _windowExtent.width;
     extent.height = _windowExtent.height;
     extent.depth = 1;
 
-    VkImageSubresourceLayers layers{};
-    layers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    layers.mipLevel = 0;
-    layers.baseArrayLayer = 0;
-    layers.layerCount = 1;
+    //AllocatedImage dstImage = create_image(extent, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT, true);
 
+    VkImageCreateInfo imgCreateInfo = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT, extent);
+    imgCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+    VkImage dstImage;
+    VK_CHECK(vkCreateImage(_device, &imgCreateInfo, nullptr, &dstImage));
+    VkMemoryRequirements memRequirements;
+    VkMemoryAllocateInfo memAllocInfo{};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    VkDeviceMemory dstImageMemory;
+    vkGetImageMemoryRequirements(_device, dstImage, &memRequirements);
+    memAllocInfo.allocationSize = memRequirements.size;
+    // memory must be host visible to copy from
+    VkBool32 memFound = VK_FALSE;
+    memAllocInfo.memoryTypeIndex = get_memory_type(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memFound);
+    VK_CHECK(vkAllocateMemory(_device, &memAllocInfo, nullptr, &dstImageMemory));
+    VK_CHECK(vkBindImageMemory(_device, dstImage, dstImageMemory, 0));
 
-    out_image = std::vector<char>(extent.width * extent.height * 8);
-    VkImageToMemoryCopyEXT regions{};
-    regions.sType = VK_STRUCTURE_TYPE_IMAGE_TO_MEMORY_COPY_EXT;
-    regions.pHostPointer = out_image.data();
-    regions.imageExtent = extent;
-    regions.imageSubresource = layers;
+    immediate_submit([&](VkCommandBuffer cmd) {
+        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
+        //VkOffset3D blitSize;
+        //blitSize.x = _windowExtent.width;
+        //blitSize.y = _windowExtent.height;
+        //blitSize.z = 1;
+        //VkImageBlit imageBlitRegion{};
+        //imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        //imageBlitRegion.srcSubresource.layerCount = 1;
+        //imageBlitRegion.srcOffsets[1] = blitSize;
+        //imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        //imageBlitRegion.dstSubresource.layerCount = 1;
+        //imageBlitRegion.dstOffsets[1] = blitSize;
 
+        vkutil::copy_image_to_image(cmd, srcImage, dstImage, extent);
 
+        //// Issue the blit command
+        //vkCmdBlitImage(
+        //    cmd,
+        //    srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        //    dstImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        //    1,
+        //    &imageBlitRegion,
+        //    VK_FILTER_NEAREST);
 
-    VkCopyImageToMemoryInfoEXT copyImageInfo{};
-    copyImageInfo.sType = VK_STRUCTURE_TYPE_COPY_IMAGE_TO_MEMORY_INFO_EXT;
-    copyImageInfo.pNext = VK_NULL_HANDLE;
-    copyImageInfo.srcImage = image.image;
-    copyImageInfo.srcImageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    copyImageInfo.regionCount = 1;
-    copyImageInfo.pRegions = &regions;
+        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+        vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    vkCopyImageToMemoryEXT(_device, &copyImageInfo);
+        });
 
-    std::cout << "This is temporary " << std::endl;
-}
-
-void VulkanEngine::save_to_ppm_file(std::vector<char>& imageBytes, AllocatedImage original_image)
-{
-    if (!saveImage)
-    {
-        return;
-    }
-    saveImage = false;
-
-    const char* filename = "./headless.ppm";
-
-    VkImageSubresource subResource{};
-    subResource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
     VkSubresourceLayout subResourceLayout;
+    vkGetImageSubresourceLayout(_device, dstImage, &subResource, &subResourceLayout);
 
-    vkGetImageSubresourceLayout(_device, original_image.image, &subResource, &subResourceLayout);
+    // map image memory so we can copy it
+    const char* data;
+    vkMapMemory(_device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&data);
+    data += subResourceLayout.offset;
 
-    std::ofstream file(filename, std::ios::out | std::ios::binary);
+    std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
 
-    // ppm header
-    file << "P6\n" << _windowExtent.height << "\n" << _windowExtent.width << "\n" << 255 << "\n";
+    file << "P6\n" << _windowExtent.width << "\n" << _windowExtent.height << "\n" << 255 << "\n";
 
-    //char* imagedata = imageBytes.data();
+    for (uint32_t y = 0; y < _windowExtent.height; y++)
+    {
+        unsigned int* row = (unsigned int*)data;
+        for (uint32_t x = 0; x < _windowExtent.width; x++)
+        {
+            file.write((char*)row, 3);
+            row++;
+        }
+        data += subResourceLayout.rowPitch;
+    }
 
-    //for (int32_t y = 0; y < _windowExtent.height; y++) {
-    //    unsigned int* row = (unsigned int*)imagedata;
-    //    for (int32_t x = 0; x < _windowExtent.width; x++) {
-    //        file.write((char*)row, 3);
-    //        row++;
-    //    }
-    //    imagedata += subResourceLayout.rowPitch;
-    //}
     file.close();
+    std::cout << "Saved file in output.ppm" << std::endl;
 
-    std::cout << "Saved image to " << filename << std::endl;
+    vkUnmapMemory(_device, dstImageMemory);
+    vkFreeMemory(_device, dstImageMemory, nullptr);
+    vkDestroyImage(_device, dstImage, nullptr);
+
 }

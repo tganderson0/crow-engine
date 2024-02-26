@@ -223,6 +223,8 @@ public:
     std::vector<ComputeEffect> backgroundEffects;
     int currentBackgroundEffect{ 0 };
 
+    VkPhysicalDeviceMemoryProperties memoryProperties;
+
     // TEMP THINGS
     bool saveImage = true;
 
@@ -257,7 +259,7 @@ public:
     FrameData& get_last_frame();
 
     AllocatedBuffer create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
+    AllocatedImage create_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool host_visible=false);
     AllocatedImage create_cubemap_image(VkExtent3D size, VkFormat format, VkImageUsageFlags usage);
 
     
@@ -294,9 +296,9 @@ private:
 
     void init_default_data();
 
-    void vk_image_to_cpu(VkCommandBuffer cmd, AllocatedImage& image, std::vector<char>& out_image);
+    void save_screenshot();
 
-    void save_to_ppm_file(std::vector<char>& imageBytes, AllocatedImage original_image);
+    uint32_t get_memory_type(uint32_t typeBits, VkMemoryPropertyFlags properties, VkBool32* memTypeFound);
 
     PFN_vkCopyImageToMemoryEXT vkCopyImageToMemoryEXT;
 };
