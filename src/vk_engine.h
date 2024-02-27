@@ -19,8 +19,6 @@
 #include <vk_loader.h>
 #include <vk_pipelines.h>
 
-#include <boost/asio.hpp>
-
 struct MeshAsset;
 namespace fastgltf {
     struct Mesh;
