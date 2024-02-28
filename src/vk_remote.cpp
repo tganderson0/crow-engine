@@ -12,12 +12,6 @@ void RemoteEngine::init()
 
     _renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
 
-    if (_renderer == NULL)
-    {
-        std::cerr << SDL_GetError() << std::endl;
-        exit(1);
-    }
-
     // start the image recieving thread
     _image_recv_thread = std::thread(&NetworkClient::start, &_client);
 }
@@ -42,15 +36,11 @@ void RemoteEngine::run()
 
         if (_client.lastImage.size() != 0)
         {
-            //std::cout << "Trying this" << std::endl;
             SDL_RWops* rw = SDL_RWFromConstMem(_client.lastImage.data(), _client.lastImage.size());
             SDL_Texture* tex = IMG_LoadTextureTyped_RW(_renderer, rw, 0, "jpg");
 
             SDL_RenderClear(_renderer);
-            if (SDL_RenderCopy(_renderer, tex, nullptr, nullptr) != NULL)
-            {
-                std::cerr << SDL_GetError() << std::endl;
-            }
+            SDL_RenderCopy(_renderer, tex, nullptr, nullptr);
             SDL_RenderPresent(_renderer);
 
             SDL_DestroyTexture(tex);

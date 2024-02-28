@@ -12,10 +12,10 @@
 NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234))
 {
 	std::ifstream infile("../../textures/yokohama_skybox/negx.jpg", std::ios::binary);
-	std::vector<char> buffer ((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
+	img = std::vector<char>((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
 
 
-	std::cout << "Size of char: " << sizeof(char) << " Size of file: " << buffer.size() << std::endl;
+	std::cout << "Size of char: " << sizeof(char) << " Size of file: " << img.size() << std::endl;
 
 	std::cout << "Waiting for connection" << std::endl;
 	for (;;)
@@ -25,11 +25,11 @@ NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234)
 
 		for (;;)
 		{
-			std::array<int64_t, 1> msg_length = { buffer.size() };
+			std::array<int64_t, 1> msg_length = { img.size() };
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
-			boost::asio::write(socket, boost::asio::buffer(buffer), ignored_error);
-			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+			boost::asio::write(socket, boost::asio::buffer(img), ignored_error);
+			std::this_thread::sleep_for(std::chrono::milliseconds(30));
 		}
 	}
 }
@@ -89,12 +89,6 @@ void NetworkClient::start()
 			{
 				lastImage.resize(image.size());
 				memcpy(lastImage.data(), image.data(), image.size());
-				std::cout << "img done" << std::endl;
-
-				//std::ofstream fs("example.jpg", std::ios::binary);
-				//fs.write(image.data(), image.size());
-				//fs.close();
-				//exit(0);
 				break;
 			}
 		}

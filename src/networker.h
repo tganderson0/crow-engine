@@ -9,6 +9,7 @@ class NetworkHost
 {
 public:
 	NetworkHost();
+	std::vector<char> img;
 
 private:
 	boost::asio::io_context io_context;
