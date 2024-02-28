@@ -29,21 +29,18 @@ NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234)
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
 			boost::asio::write(socket, boost::asio::buffer(buffer), ignored_error);
-			std::this_thread::sleep_for(std::chrono::milliseconds(2000000));
+			std::this_thread::sleep_for(std::chrono::milliseconds(500));
 		}
 	}
 }
 
-NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
+void NetworkClient::start()
 {
 	std::cout << "Starting connection" << std::endl;
 	tcp::resolver::results_type endpoints = resolver.resolve(REMOTE_HOST, "1234");
 	boost::asio::connect(socket, endpoints);
 
 	std::cout << "connection completed" << std::endl;
-
-	std::vector<char> image;
-	std::vector<char> lastImage;
 
 	while (true)
 	{
@@ -55,7 +52,7 @@ NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
 			std::array<char, 4096> buf;
 			boost::system::error_code error;
 			size_t len = socket.read_some(boost::asio::buffer(buf), error);
-			
+
 			if (len < sizeof(int64_t) && !header_read)
 			{
 				continue;
@@ -74,7 +71,7 @@ NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
 			else if (error)
 				throw boost::system::system_error(error); // Some other error.
 
-			
+
 
 			if (header_read)
 			{
@@ -92,15 +89,18 @@ NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
 			{
 				lastImage.resize(image.size());
 				memcpy(lastImage.data(), image.data(), image.size());
-				
-				std::ofstream fs("example.jpg", std::ios::binary);
-				fs.write(image.data(), image.size());
-				fs.close();
-				exit(0);
+				std::cout << "img done" << std::endl;
+
+				//std::ofstream fs("example.jpg", std::ios::binary);
+				//fs.write(image.data(), image.size());
+				//fs.close();
+				//exit(0);
 				break;
 			}
 		}
 	}
+}
 
-
+NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
+{
 }

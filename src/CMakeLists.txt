@@ -19,6 +19,8 @@ add_executable (engine
   camera.h
   networker.h
   networker.cpp
+  vk_remote.cpp
+  vk_remote.h
 )
 
 set_property(TARGET engine PROPERTY CXX_STANDARD 20)
@@ -28,7 +30,7 @@ target_include_directories(engine PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(Boost 1.82 REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 
-target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 vkbootstrap imgui fastgltf::fastgltf ${Boost_LIBRARIES})
+target_link_libraries(engine PUBLIC vma glm Vulkan::Vulkan fmt::fmt stb_image SDL2::SDL2 SDL2_image vkbootstrap imgui fastgltf::fastgltf ${Boost_LIBRARIES})
 
 target_precompile_headers(engine PUBLIC <optional> <vector> <memory> <string> <vector> <unordered_map> <glm/mat4x4.hpp>  <glm/vec4.hpp> <vulkan/vulkan.h>)
 

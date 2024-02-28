@@ -1,16 +1,16 @@
 #include <vk_engine.h>
 #include <iostream>
-#include <networker.h>
 #include <thread>
 #include <chrono>
+#include "vk_remote.h"
 
 #define RENDER_HOST false
 
-void handle_client()
-{
-	NetworkClient client;
-}
-
+//void handle_client()
+//{
+//	NetworkClient client;
+//}
+//
 void handle_host()
 {
 	NetworkHost networker;
@@ -33,11 +33,15 @@ int main(int argc, char* argv[])
 	{
 		std::thread t1(handle_host);
 
-		std::thread t2(handle_client);
+		
+
+		RemoteEngine remoteEngine;
+		remoteEngine.init();
+
+		remoteEngine.run();
+		
 
 		t1.join();
-		t2.join();
-
 	}
 
 	return 0;
