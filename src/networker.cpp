@@ -11,13 +11,14 @@
 
 NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234))
 {
+}
+
+void NetworkHost::start()
+{
 	std::ifstream infile("../../textures/yokohama_skybox/negx.jpg", std::ios::binary);
 	img = std::vector<char>((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
 
-
-	std::cout << "Size of char: " << sizeof(char) << " Size of file: " << img.size() << std::endl;
-
-	std::cout << "Waiting for connection" << std::endl;
+	std::cout << "HOST: Waiting for connection" << std::endl;
 	for (;;)
 	{
 		tcp::socket socket(io_context);

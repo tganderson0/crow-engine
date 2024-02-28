@@ -18,6 +18,7 @@
 #include <vk_descriptors.h>
 #include <vk_loader.h>
 #include <vk_pipelines.h>
+#include "networker.h"
 
 struct MeshAsset;
 namespace fastgltf {
@@ -141,6 +142,12 @@ struct MeshNode : public Node {
 
 class VulkanEngine {
 public:
+
+    // REMOTE
+    //NetworkHost* host;
+
+    /////////////////
+
     bool _isInitialized{ false };
     int _frameNumber{ 0 };
 

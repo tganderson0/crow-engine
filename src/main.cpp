@@ -4,16 +4,12 @@
 #include <chrono>
 #include "vk_remote.h"
 
-#define RENDER_HOST false
+#define RENDER_HOST true
 
-//void handle_client()
-//{
-//	NetworkClient client;
-//}
-//
-void handle_host()
+
+void handle_host(NetworkHost& networker)
 {
-	NetworkHost networker;
+	networker.start();
 }
 
 int main(int argc, char* argv[])
@@ -21,19 +17,25 @@ int main(int argc, char* argv[])
 
 	if (RENDER_HOST)
 	{
+		//NetworkHost networker;
+		//std::thread t1(handle_host, networker);
+
 		VulkanEngine engine;
 
 		engine.init();
 
+		//engine.host = &networker;
+
 		engine.run();
 
 		engine.cleanup();
+
+		//t1.join();
 	}
 	else
 	{
-		std::thread t1(handle_host);
-
-		
+		NetworkHost networker;
+		std::thread t1(handle_host, std::ref(networker));
 
 		RemoteEngine remoteEngine;
 		remoteEngine.init();

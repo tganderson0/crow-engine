@@ -21,6 +21,9 @@
 #include <filesystem>
 
 #include "stb_image.h"
+#include <turbojpeg.h>
+
+#include <boost/gil.hpp>
 
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
@@ -28,13 +31,13 @@
 #include <fastgltf/tools.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <thread>
+
 constexpr bool bUseValidationLayers = true;
 
 // we want to immediately abort when there is an error. In normal engines this
 // would give an error message to the user, or perform a dump of state.
 using namespace std;
-
-#define CHAPTER_STAGE 1
 
 VulkanEngine* loadedEngine = nullptr;
 
@@ -1539,11 +1542,21 @@ void VulkanEngine::save_screenshot()
     vkGetImageSubresourceLayout(_device, dstImage, &subResource, &subResourceLayout);
 
     // map image memory so we can copy it
-    const char* data;
+    const unsigned char* data;
     vkMapMemory(_device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&data);
     data += subResourceLayout.offset;
 
-    std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
+    unsigned char* _compressedImage = nullptr;
+    long unsigned int _jpegSize = 0;
+
+    tjhandle _jpegCompressor = tjInitCompress();
+
+    std::cout << "Starting save" << std::endl;
+
+    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_420, 75, TJFLAG_FASTDCT);
+
+    std::cout << "compressed" << std::endl;
+    /*std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
 
     file << "P6\n" << _windowExtent.width << "\n" << _windowExtent.height << "\n" << 255 << "\n";
 
@@ -1559,7 +1572,7 @@ void VulkanEngine::save_screenshot()
     }
 
     file.close();
-    std::cout << "Saved file in output.ppm" << std::endl;
+    std::cout << "Saved file in output.ppm" << std::endl;*/
 
     vkUnmapMemory(_device, dstImageMemory);
     vkFreeMemory(_device, dstImageMemory, nullptr);
