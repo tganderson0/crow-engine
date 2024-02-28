@@ -32,6 +32,7 @@
 #include <glm/gtx/transform.hpp>
 
 #include <thread>
+#include <chrono>
 
 constexpr bool bUseValidationLayers = true;
 
@@ -1553,9 +1554,18 @@ void VulkanEngine::save_screenshot()
 
     std::cout << "Starting save" << std::endl;
 
-    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_420, 75, TJFLAG_FASTDCT);
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 40, TJFLAG_FASTDCT);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    std::cout << "compressed" << std::endl;
+    std::cout << "Size of file: " << _jpegSize << std::endl;
+
+    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
+
+    std::ofstream file("output.jpg", std::ios::out | std::ios::binary);
+    file.write((char*)_compressedImage, _jpegSize);
+    file.close();
+
     /*std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
 
     file << "P6\n" << _windowExtent.width << "\n" << _windowExtent.height << "\n" << 255 << "\n";
