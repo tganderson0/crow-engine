@@ -15,7 +15,15 @@ void RemoteEngine::init()
     _renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
 
     // start the image recieving thread
-    _image_recv_thread = std::thread(&NetworkClient::start, &_client);
+    _image_recv_thread = std::thread(&RemoteEngine::handle_remote, this);
+}
+
+void RemoteEngine::handle_remote()
+{
+    while (true)
+    {
+        _client.start();
+    }
 }
 
 void RemoteEngine::run()

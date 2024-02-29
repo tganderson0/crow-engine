@@ -7,6 +7,7 @@ class RemoteEngine {
 public:
 	void init();
 	void run();
+	void handle_remote();
 
 private:
 	NetworkClient _client;

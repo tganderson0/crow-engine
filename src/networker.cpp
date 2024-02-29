@@ -10,7 +10,7 @@
 #include <turbojpeg.h>
 
 
-#define REMOTE_HOST "localhost"
+#define REMOTE_HOST "10.0.0.14"
 
 NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234))
 {
@@ -21,9 +21,9 @@ void NetworkHost::start()
 	std::ifstream infile("../../textures/yokohama_skybox/negx.jpg", std::ios::binary);
 	img = std::vector<char>((std::istreambuf_iterator<char>(infile)), std::istreambuf_iterator<char>());
 
-	std::cout << "HOST: Waiting for connection" << std::endl;
 	for (;;)
 	{
+		std::cout << "HOST: Waiting for connection" << std::endl;
 		tcp::socket socket(io_context);
 		acceptor.accept(socket);
 
@@ -33,7 +33,12 @@ void NetworkHost::start()
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
 			boost::asio::write(socket, boost::asio::buffer(img), ignored_error);
-			std::this_thread::sleep_for(std::chrono::milliseconds(16));
+
+			if (ignored_error == boost::asio::error::connection_aborted || ignored_error == boost::asio::error::connection_reset)
+			{
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(30));
 		}
 	}
 }
@@ -55,7 +60,7 @@ void NetworkClient::start()
 		bool header_read = false;
 		for (;;)
 		{
-			std::array<char, 4096> buf;
+			std::array<char, 8192> buf;
 			boost::system::error_code error;
 			size_t len = socket.read_some(boost::asio::buffer(buf), error);
 
@@ -67,6 +72,20 @@ void NetworkClient::start()
 			if (header_read == false)
 			{
 				memcpy(&total_size, buf.data(), sizeof(int64_t));
+
+				if (total_size < 0)
+				{
+					std::cerr << "Got a total size less than 0! Bad header read!" << std::endl;
+					std::cerr << "Message size: " << len << std::endl;
+					return;
+				}
+
+				if (total_size > 2e+7)
+				{
+					std::cerr << "Got a total size that's larger than 20mb, this doesn't seem right." << std::endl;
+					return;
+				}
+
 				image.resize(total_size);
 				memcpy(&rowPitch, buf.data() + sizeof(int64_t), sizeof(int64_t));
 				//std::cout << "Got a new image, size: " << total_size << std::endl;
@@ -97,10 +116,6 @@ void NetworkClient::start()
 			{
 				//lastImage.resize(image.size());
 				//memcpy(lastImage.data(), image.data(), image.size());
-				if (lastImage.size() != 1700 * 900 * 4)
-				{
-					lastImage.resize(1700 * 900 * 4);
-				}
 				tjDecompress2(jpegDecompresser, (unsigned char*)image.data(), image.size(), lastImage.data(), 1700, 0, 900, TJPF_BGRA, TJFLAG_FASTDCT);
 				break;
 			}
@@ -110,4 +125,5 @@ void NetworkClient::start()
 
 NetworkClient::NetworkClient() : resolver(io_context), socket(io_context)
 {
+	lastImage.resize(1700 * 4 * 900);
 }
