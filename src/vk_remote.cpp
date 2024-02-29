@@ -21,21 +21,18 @@ void RemoteEngine::init()
 void RemoteEngine::run()
 {
     bool quit = false;
-    SDL_Event event;
+    SDL_Event e;
 
     SDL_Texture* texture = SDL_CreateTexture(_renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1700, 900);
 
 
     while (!quit)
     {
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        SDL_WaitEvent(&event);
 
-        switch (event.type)
-        {
-        case SDL_QUIT:
-            quit = true;
-            break;
+        while (SDL_PollEvent(&e) != 0) {
+            // close the window when user alt-f4s or clicks the X button
+            if (e.type == SDL_QUIT)
+                quit = true;
         }
 
         
@@ -50,6 +47,7 @@ void RemoteEngine::run()
             SDL_LockTexture(texture, nullptr, reinterpret_cast<void**>(&lockedPixels), &pitch);
             std::copy_n(_client.lastImage.data(), _client.lastImage.size(), lockedPixels);
             SDL_UnlockTexture(texture);
+            
 
             SDL_RenderClear(_renderer);
             SDL_RenderCopy(_renderer, texture, nullptr, nullptr);
@@ -58,8 +56,6 @@ void RemoteEngine::run()
             //SDL_DestroyTexture(tex);
 
         }
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        //std::cout << "Frame time = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << std::endl;
     }
 
     SDL_DestroyTexture(texture);

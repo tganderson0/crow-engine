@@ -33,7 +33,7 @@ void NetworkHost::start()
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
 			boost::asio::write(socket, boost::asio::buffer(img), ignored_error);
-			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+			std::this_thread::sleep_for(std::chrono::milliseconds(16));
 		}
 	}
 }
@@ -53,14 +53,13 @@ void NetworkClient::start()
 		int64_t total_size = 0;
 		int64_t current_size = 0;
 		bool header_read = false;
-		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 		for (;;)
 		{
 			std::array<char, 4096> buf;
 			boost::system::error_code error;
 			size_t len = socket.read_some(boost::asio::buffer(buf), error);
 
-			if (len < sizeof(int64_t) && !header_read)
+			if (len < sizeof(int64_t) * 2 && !header_read)
 			{
 				continue;
 			}
@@ -106,8 +105,6 @@ void NetworkClient::start()
 				break;
 			}
 		}
-		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-		//std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << std::endl;
 	}
 }
 

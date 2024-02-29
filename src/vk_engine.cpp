@@ -1544,7 +1544,7 @@ void VulkanEngine::save_screenshot()
 
 
 
-    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 40, TJFLAG_FASTDCT);
+    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 90, TJFLAG_FASTDCT);
 
     networkHost->rowPitch = subResourceLayout.rowPitch;
 
