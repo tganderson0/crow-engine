@@ -144,7 +144,7 @@ class VulkanEngine {
 public:
 
     // REMOTE
-    //NetworkHost* host;
+    NetworkHost* networkHost;
 
     /////////////////
 

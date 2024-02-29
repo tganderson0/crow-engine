@@ -11,6 +11,7 @@ public:
 	NetworkHost();
 	std::vector<char> img;
 	void start();
+	int64_t rowPitch = 0;
 
 private:
 	boost::asio::io_context io_context;
@@ -20,10 +21,11 @@ private:
 class NetworkClient
 {
 public:
+	void start();
 	NetworkClient();
 public:
-	std::vector<char> lastImage;
-	void start();
+	std::vector<unsigned char> lastImage;
+	int64_t rowPitch = 0;
 private:
 	boost::asio::io_context io_context;
 	tcp::resolver resolver;

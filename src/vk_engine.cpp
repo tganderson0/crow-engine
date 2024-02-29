@@ -1554,17 +1554,12 @@ void VulkanEngine::save_screenshot()
 
     std::cout << "Starting save" << std::endl;
 
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 40, TJFLAG_FASTDCT);
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
 
-    std::cout << "Size of file: " << _jpegSize << std::endl;
+    networkHost->rowPitch = subResourceLayout.rowPitch;
 
-    std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() << "[µs]" << std::endl;
-
-    std::ofstream file("output.jpg", std::ios::out | std::ios::binary);
-    file.write((char*)_compressedImage, _jpegSize);
-    file.close();
+    networkHost->img.resize(_jpegSize);
+    memcpy(networkHost->img.data(), _compressedImage, _jpegSize);
 
     /*std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
 

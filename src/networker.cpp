@@ -6,6 +6,9 @@
 #include <fstream>
 #include <vector>
 #include <array>
+#include <chrono>
+#include <turbojpeg.h>
+
 
 #define REMOTE_HOST "localhost"
 
@@ -26,11 +29,11 @@ void NetworkHost::start()
 
 		for (;;)
 		{
-			std::array<int64_t, 1> msg_length = { img.size() };
+			std::array<int64_t, 2> msg_length = { img.size(), rowPitch };
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
 			boost::asio::write(socket, boost::asio::buffer(img), ignored_error);
-			std::this_thread::sleep_for(std::chrono::milliseconds(30));
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
 		}
 	}
 }
@@ -42,12 +45,15 @@ void NetworkClient::start()
 	boost::asio::connect(socket, endpoints);
 
 	std::cout << "connection completed" << std::endl;
+	tjhandle jpegDecompresser = tjInitDecompress();
+
 
 	while (true)
 	{
 		int64_t total_size = 0;
 		int64_t current_size = 0;
 		bool header_read = false;
+		std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 		for (;;)
 		{
 			std::array<char, 4096> buf;
@@ -63,6 +69,8 @@ void NetworkClient::start()
 			{
 				memcpy(&total_size, buf.data(), sizeof(int64_t));
 				image.resize(total_size);
+				memcpy(&rowPitch, buf.data() + sizeof(int64_t), sizeof(int64_t));
+				//std::cout << "Got a new image, size: " << total_size << std::endl;
 			}
 
 			if (error == boost::asio::error::eof)
@@ -81,18 +89,25 @@ void NetworkClient::start()
 			}
 			else
 			{
-				memcpy(image.data(), buf.data() + sizeof(int64_t), len - sizeof(int64_t));
-				current_size += len - sizeof(int64_t);
+				memcpy(image.data(), buf.data() + 2 * sizeof(int64_t), len - 2 * sizeof(int64_t));
+				current_size += len - 2 * sizeof(int64_t);
 				header_read = true;
 			}
 
 			if (current_size >= total_size)
 			{
-				lastImage.resize(image.size());
-				memcpy(lastImage.data(), image.data(), image.size());
+				//lastImage.resize(image.size());
+				//memcpy(lastImage.data(), image.data(), image.size());
+				if (lastImage.size() != 1700 * 900 * 4)
+				{
+					lastImage.resize(1700 * 900 * 4);
+				}
+				tjDecompress2(jpegDecompresser, (unsigned char*)image.data(), image.size(), lastImage.data(), 1700, 0, 900, TJPF_BGRA, TJFLAG_FASTDCT);
 				break;
 			}
 		}
+		std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+		//std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << std::endl;
 	}
 }
 
