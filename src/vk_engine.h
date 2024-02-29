@@ -19,6 +19,7 @@
 #include <vk_loader.h>
 #include <vk_pipelines.h>
 #include "networker.h"
+#include <turbojpeg.h>
 
 struct MeshAsset;
 namespace fastgltf {
@@ -145,7 +146,9 @@ public:
 
     // REMOTE
     NetworkHost* networkHost;
-
+    tjhandle _jpegCompressor;
+    VkDeviceMemory dstImageMemory;
+    VkImage dstImage;
     /////////////////
 
     bool _isInitialized{ false };

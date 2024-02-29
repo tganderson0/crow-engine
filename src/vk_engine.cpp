@@ -21,7 +21,6 @@
 #include <filesystem>
 
 #include "stb_image.h"
-#include <turbojpeg.h>
 
 #include <boost/gil.hpp>
 
@@ -57,6 +56,8 @@ void VulkanEngine::init()
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_VULKAN);
+
+    _jpegCompressor = tjInitCompress();
 
     _window = SDL_CreateWindow("Vulkan Engine", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, _windowExtent.width,
         _windowExtent.height, window_flags);
@@ -177,6 +178,10 @@ void VulkanEngine::init_default_data() {
     sampl.minFilter = VK_FILTER_LINEAR;
 
     vkCreateSampler(_device, &sampl, nullptr, &_defaultSamplerLinear);
+
+    immediate_submit([&](VkCommandBuffer cmd) {
+        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        });
 }
 
 void VulkanEngine::cleanup()
@@ -614,6 +619,8 @@ void VulkanEngine::run()
             ImGui_ImplSDL2_ProcessEvent(&e);
         }
 
+        save_screenshot();
+
         // imgui new frame
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL2_NewFrame(_window);
@@ -644,13 +651,12 @@ void VulkanEngine::run()
             ImGui::End();
         }
 
-        if (ImGui::Begin("Debug")) {
-            if (ImGui::Button("Screenshot"))
-            {
-                save_screenshot();
-            }
-            ImGui::End();
-        }
+        //if (ImGui::Begin("Debug")) {
+        //    if (ImGui::Button("Screenshot"))
+        //    {
+        //    }
+        //    ImGui::End();
+        //}
 
         ImGui::Render();
 
@@ -1111,6 +1117,26 @@ void VulkanEngine::init_swapchain()
 
     VK_CHECK(vkCreateImageView(_device, &dview_info, nullptr, &_depthImage.imageView));
 
+    // Create remote rendering transfer textures and memory
+    VkExtent3D extent{};
+    extent.width = _windowExtent.width;
+    extent.height = _windowExtent.height;
+    extent.depth = 1;
+
+    VkImageCreateInfo imgCreateInfo = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT, extent);
+    imgCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
+    VK_CHECK(vkCreateImage(_device, &imgCreateInfo, nullptr, &dstImage));
+    VkMemoryRequirements memRequirements;
+    VkMemoryAllocateInfo memAllocInfo{};
+    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+
+    vkGetImageMemoryRequirements(_device, dstImage, &memRequirements);
+    memAllocInfo.allocationSize = memRequirements.size;
+    // memory must be host visible to copy from
+    VkBool32 memFound = VK_FALSE;
+    memAllocInfo.memoryTypeIndex = get_memory_type(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memFound);
+    VK_CHECK(vkAllocateMemory(_device, &memAllocInfo, nullptr, &dstImageMemory));
+    VK_CHECK(vkBindImageMemory(_device, dstImage, dstImageMemory, 0));
 
     //add to deletion queues
     _mainDeletionQueue.push_function([=]() {
@@ -1119,6 +1145,9 @@ void VulkanEngine::init_swapchain()
 
         vkDestroyImageView(_device, _depthImage.imageView, nullptr);
         vmaDestroyImage(_allocator, _depthImage.image, _depthImage.allocation);
+
+        vkDestroyImage(_device, dstImage, nullptr);
+        vkFreeMemory(_device, dstImageMemory, nullptr);
         });
 }
 
@@ -1483,55 +1512,18 @@ void VulkanEngine::save_screenshot()
     bool screenshotSaved = false;
     
     VkImage srcImage = _swapchainImages[_frameNumber % FRAME_OVERLAP];
+
     VkExtent3D extent{};
     extent.width = _windowExtent.width;
     extent.height = _windowExtent.height;
     extent.depth = 1;
-
-    //AllocatedImage dstImage = create_image(extent, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT, true);
-
-    VkImageCreateInfo imgCreateInfo = vkinit::image_create_info(VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_TRANSFER_DST_BIT, extent);
-    imgCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
-    VkImage dstImage;
-    VK_CHECK(vkCreateImage(_device, &imgCreateInfo, nullptr, &dstImage));
-    VkMemoryRequirements memRequirements;
-    VkMemoryAllocateInfo memAllocInfo{};
-    memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    VkDeviceMemory dstImageMemory;
-    vkGetImageMemoryRequirements(_device, dstImage, &memRequirements);
-    memAllocInfo.allocationSize = memRequirements.size;
-    // memory must be host visible to copy from
-    VkBool32 memFound = VK_FALSE;
-    memAllocInfo.memoryTypeIndex = get_memory_type(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memFound);
-    VK_CHECK(vkAllocateMemory(_device, &memAllocInfo, nullptr, &dstImageMemory));
-    VK_CHECK(vkBindImageMemory(_device, dstImage, dstImageMemory, 0));
+    
 
     immediate_submit([&](VkCommandBuffer cmd) {
-        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
         vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-        //VkOffset3D blitSize;
-        //blitSize.x = _windowExtent.width;
-        //blitSize.y = _windowExtent.height;
-        //blitSize.z = 1;
-        //VkImageBlit imageBlitRegion{};
-        //imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        //imageBlitRegion.srcSubresource.layerCount = 1;
-        //imageBlitRegion.srcOffsets[1] = blitSize;
-        //imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        //imageBlitRegion.dstSubresource.layerCount = 1;
-        //imageBlitRegion.dstOffsets[1] = blitSize;
-
         vkutil::copy_image_to_image(cmd, srcImage, dstImage, extent);
-
-        //// Issue the blit command
-        //vkCmdBlitImage(
-        //    cmd,
-        //    srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        //    dstImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        //    1,
-        //    &imageBlitRegion,
-        //    VK_FILTER_NEAREST);
 
         vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
         vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -1550,9 +1542,7 @@ void VulkanEngine::save_screenshot()
     unsigned char* _compressedImage = nullptr;
     long unsigned int _jpegSize = 0;
 
-    tjhandle _jpegCompressor = tjInitCompress();
 
-    std::cout << "Starting save" << std::endl;
 
     tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 40, TJFLAG_FASTDCT);
 
@@ -1580,7 +1570,4 @@ void VulkanEngine::save_screenshot()
     std::cout << "Saved file in output.ppm" << std::endl;*/
 
     vkUnmapMemory(_device, dstImageMemory);
-    vkFreeMemory(_device, dstImageMemory, nullptr);
-    vkDestroyImage(_device, dstImage, nullptr);
-
 }
