@@ -14,6 +14,7 @@
 
 NetworkHost::NetworkHost() : acceptor(io_context, tcp::endpoint(tcp::v4(), 1234))
 {
+	_jpegCompressor = tjInitCompress();
 }
 
 void NetworkHost::start()
@@ -23,12 +24,20 @@ void NetworkHost::start()
 
 	for (;;)
 	{
+		ready_for_encoding = true;
 		std::cout << "HOST: Waiting for connection" << std::endl;
 		tcp::socket socket(io_context);
 		acceptor.accept(socket);
 
 		for (;;)
 		{
+			while (!start_read) {};
+			start_read = false;
+			unsigned char* _compressedImage = nullptr;
+			long unsigned int _jpegSize = 0;
+			tjCompress2(_jpegCompressor, raw_data, extent.width, rowPitch, extent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 90, TJFLAG_FASTDCT);
+			img.assign(_compressedImage, _compressedImage + _jpegSize);
+
 			std::array<int64_t, 2> msg_length = { img.size(), rowPitch };
 			boost::system::error_code ignored_error;
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
@@ -38,6 +47,7 @@ void NetworkHost::start()
 			{
 				break;
 			}
+			ready_for_encoding = true;
 			std::this_thread::sleep_for(std::chrono::milliseconds(16));
 		}
 	}

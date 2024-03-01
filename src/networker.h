@@ -3,6 +3,8 @@
 #include <string>
 #include <boost/asio.hpp>
 #include <vector>
+#include <vulkan/vulkan.h>
+#include <turbojpeg.h>
 
 using boost::asio::ip::tcp;
 
@@ -13,6 +15,12 @@ public:
 	std::vector<char> img;
 	void start();
 	int64_t rowPitch = 0;
+	bool ready_for_encoding = true;
+	bool first_encode = true;
+	bool start_read = false;
+	unsigned char* raw_data;
+	VkExtent3D extent;
+	tjhandle _jpegCompressor;
 
 private:
 	boost::asio::io_context io_context;

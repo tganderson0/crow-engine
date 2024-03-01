@@ -1509,45 +1509,53 @@ uint32_t VulkanEngine::get_memory_type(uint32_t typeBits, VkMemoryPropertyFlags 
 
 void VulkanEngine::save_screenshot()
 {
-    bool screenshotSaved = false;
-    
-    VkImage srcImage = _swapchainImages[_frameNumber % FRAME_OVERLAP];
+    if (networkHost->ready_for_encoding)
+    {
+        networkHost->ready_for_encoding = false;
+        if (!networkHost->first_encode)
+        {
+            vkUnmapMemory(_device, dstImageMemory);
+        }
+        else
+        {
+            networkHost->first_encode = false;
+        }
 
-    VkExtent3D extent{};
-    extent.width = _windowExtent.width;
-    extent.height = _windowExtent.height;
-    extent.depth = 1;
-    
+        bool screenshotSaved = false;
 
-    immediate_submit([&](VkCommandBuffer cmd) {
-        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-        vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+        VkImage srcImage = _swapchainImages[_frameNumber % FRAME_OVERLAP];
 
-        vkutil::copy_image_to_image(cmd, srcImage, dstImage, extent);
+        VkExtent3D extent{};
+        extent.width = _windowExtent.width;
+        extent.height = _windowExtent.height;
+        extent.depth = 1;
 
-        vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
-        vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        networkHost->extent.depth = 1;
+        networkHost->extent.width = _windowExtent.width;
+        networkHost->extent.height = _windowExtent.height;
 
-        });
+        immediate_submit([&](VkCommandBuffer cmd) {
+            vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+            vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 
-    VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
-    VkSubresourceLayout subResourceLayout;
-    vkGetImageSubresourceLayout(_device, dstImage, &subResource, &subResourceLayout);
+            vkutil::copy_image_to_image(cmd, srcImage, dstImage, extent);
 
-    // map image memory so we can copy it
-    const unsigned char* data;
-    vkMapMemory(_device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&data);
-    data += subResourceLayout.offset;
+            vkutil::transition_image(cmd, dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+            vkutil::transition_image(cmd, srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    unsigned char* _compressedImage = nullptr;
-    long unsigned int _jpegSize = 0;
+            });
 
-    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 90, TJFLAG_FASTDCT);
+        VkImageSubresource subResource{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+        VkSubresourceLayout subResourceLayout;
+        vkGetImageSubresourceLayout(_device, dstImage, &subResource, &subResourceLayout);
 
-    networkHost->rowPitch = subResourceLayout.rowPitch;
+        // map image memory so we can copy it
+        vkMapMemory(_device, dstImageMemory, 0, VK_WHOLE_SIZE, 0, (void**)&networkHost->raw_data);
+        networkHost->raw_data += subResourceLayout.offset;
+        networkHost->rowPitch = subResourceLayout.rowPitch;
+        networkHost->start_read = true;
 
-    networkHost->img.resize(_jpegSize);
-    memcpy(networkHost->img.data(), _compressedImage, _jpegSize);
-
-    vkUnmapMemory(_device, dstImageMemory);
+        //networkHost->img.resize(_jpegSize);
+        //memcpy(networkHost->img.data(), _compressedImage, _jpegSize);
+    }
 }
