@@ -1542,34 +1542,12 @@ void VulkanEngine::save_screenshot()
     unsigned char* _compressedImage = nullptr;
     long unsigned int _jpegSize = 0;
 
-
-
-    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 25, TJFLAG_FASTDCT);
-
-    std::cout << _jpegSize << std::endl;
+    tjCompress2(_jpegCompressor, data, _windowExtent.width, subResourceLayout.rowPitch, _windowExtent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 90, TJFLAG_FASTDCT);
 
     networkHost->rowPitch = subResourceLayout.rowPitch;
 
     networkHost->img.resize(_jpegSize);
     memcpy(networkHost->img.data(), _compressedImage, _jpegSize);
-
-    /*std::ofstream file("output.ppm", std::ios::out | std::ios::binary);
-
-    file << "P6\n" << _windowExtent.width << "\n" << _windowExtent.height << "\n" << 255 << "\n";
-
-    for (uint32_t y = 0; y < _windowExtent.height; y++)
-    {
-        unsigned int* row = (unsigned int*)data;
-        for (uint32_t x = 0; x < _windowExtent.width; x++)
-        {
-            file.write((char*)row, 3);
-            row++;
-        }
-        data += subResourceLayout.rowPitch;
-    }
-
-    file.close();
-    std::cout << "Saved file in output.ppm" << std::endl;*/
 
     vkUnmapMemory(_device, dstImageMemory);
 }

@@ -144,6 +144,11 @@ struct MeshNode : public Node {
 class VulkanEngine {
 public:
 
+    // TIMING THINGS
+    std::vector<std::chrono::steady_clock::time_point> render_times;
+    std::vector<std::chrono::steady_clock::time_point> encoding_times;
+    /////////////////
+
     // REMOTE
     NetworkHost* networkHost;
     tjhandle _jpegCompressor;

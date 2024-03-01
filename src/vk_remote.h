@@ -1,6 +1,8 @@
 #pragma once
 #include "networker.h"
 #include <thread>
+#include <vector>
+#include <chrono>
 
 class RemoteEngine {
 
@@ -16,4 +18,6 @@ private:
 	std::thread _image_recv_thread;
 	std::thread _input_send_thread;
 	struct SDL_Renderer* _renderer{ nullptr };
+	std::vector<std::chrono::steady_clock::time_point> transfer_times;
+	std::vector<std::chrono::steady_clock::time_point> present_times;
 };
