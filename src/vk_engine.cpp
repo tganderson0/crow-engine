@@ -665,8 +665,9 @@ void VulkanEngine::run()
 
         update_scene();
 
-
         draw();
+
+        update_scene_to_remote();
 
         auto end = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -692,6 +693,37 @@ void VulkanEngine::update_scene()
     sceneData.proj = projection;
     sceneData.viewproj = projection * view;
     sceneData.cameraPosition = glm::vec4(mainCamera.position, 0.0);
+
+    loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
+}
+
+void VulkanEngine::wait_for_main_render()
+{
+
+}
+
+void VulkanEngine::draw_remote()
+{
+
+}
+
+void VulkanEngine::update_scene_to_remote()
+{
+    remoteCamera.update();
+
+    glm::mat4 view = remoteCamera.getViewMatrix();
+
+    // camera projection
+    glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 10000.f, 0.1f);
+
+    // invert the Y direction on projection matrix so that we are more similar
+    // to opengl and gltf axis
+    projection[1][1] *= -1;
+
+    sceneData.view = view;
+    sceneData.proj = projection;
+    sceneData.viewproj = projection * view;
+    sceneData.cameraPosition = glm::vec4(remoteCamera.position, 0.0);
 
     loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
 }
@@ -1080,6 +1112,12 @@ void VulkanEngine::init_swapchain()
     //hardcoding the draw format to 32 bit float
     _drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 
+    // set the image format for the remote draw images
+    for (size_t i = 0; i < FRAME_OVERLAP; i++)
+    {
+        _remoteDrawFramebuffer[i].imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    }
+
     VkImageUsageFlags drawImageUsages{};
     drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -1094,6 +1132,12 @@ void VulkanEngine::init_swapchain()
 
     //allocate and create the image
     vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_drawImage.image, &_drawImage.allocation, nullptr);
+
+    // allocate the remote draw images
+    for (size_t i = 0; i < FRAME_OVERLAP; i++)
+    {
+        vmaCreateImage(_allocator, &rimg_info, &rimg_allocinfo, &_remoteDrawFramebuffer[i].image, &_remoteDrawFramebuffer[i].allocation, nullptr);
+    }
 
     //build a image-view for the draw image to use for rendering
     VkImageViewCreateInfo rview_info = vkinit::imageview_create_info(_drawImage.imageFormat, _drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);

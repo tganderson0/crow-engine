@@ -11,6 +11,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 
 #include <vk_mem_alloc.h>
 
@@ -206,6 +207,8 @@ public:
     AllocatedImage _drawImage;
     AllocatedImage _depthImage;
 
+    std::array<AllocatedImage, FRAME_OVERLAP> _remoteDrawFramebuffer;
+
     // the format for the draw image
     VkFormat _drawFormat;
 
@@ -230,6 +233,8 @@ public:
     GPUSceneData sceneData;
 
     Camera mainCamera;
+
+    Camera remoteCamera;
 
     EngineStats stats;
 
@@ -263,6 +268,11 @@ public:
     void run();
 
     void update_scene();
+
+    void wait_for_main_render();
+    void draw_remote();
+
+    void update_scene_to_remote();
 
     // upload a mesh into a pair of gpu buffers. If descriptor allocator is not
     // null, it will also create a descriptor that points to the vertex buffer
