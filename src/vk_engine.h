@@ -269,7 +269,6 @@ public:
 
     void update_scene();
 
-    void wait_for_main_render();
     void draw_remote();
 
     void update_scene_to_remote();

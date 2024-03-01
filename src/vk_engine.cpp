@@ -90,6 +90,12 @@ void VulkanEngine::init()
 
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
+
+    remoteCamera.velocity = glm::vec3(0.f);
+    remoteCamera.position = glm::vec3(0, -00.f, 5.f);
+
+    remoteCamera.pitch = 0;
+    remoteCamera.yaw = 0;
 }
 
 void VulkanEngine::init_default_data() {
@@ -446,7 +452,6 @@ void VulkanEngine::draw()
 
 
     //increase the number of frames drawn
-    _frameNumber++;
 }
 
 
@@ -667,7 +672,7 @@ void VulkanEngine::run()
 
         draw();
 
-        update_scene_to_remote();
+        draw_remote();
 
         auto end = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -697,14 +702,70 @@ void VulkanEngine::update_scene()
     loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
 }
 
-void VulkanEngine::wait_for_main_render()
-{
-
-}
-
 void VulkanEngine::draw_remote()
 {
+    // wait for GPU to finish rendering the host user
+    VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
 
+    VK_CHECK(vkResetFences(_device, 1, &get_current_frame()._renderFence));
+
+    //now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
+    VK_CHECK(vkResetCommandBuffer(get_current_frame()._mainCommandBuffer, 0));
+
+    update_scene_to_remote();
+
+
+    //naming it cmd for shorter writing
+    VkCommandBuffer cmd = get_current_frame()._mainCommandBuffer;
+
+    //begin the command buffer recording. We will use this command buffer exactly once, so we want to let vulkan know that
+    VkCommandBufferBeginInfo cmdBeginInfo = vkinit::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    // transition our main draw image into general layout so we can write into it
+    // we will overwrite it all so we dont care about what was the older layout
+    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    draw_main(cmd);
+
+    //transtion the draw image and the swapchain image into their correct transfer layouts
+    vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    vkutil::transition_image(cmd, _remoteDrawFramebuffer[_frameNumber % FRAME_OVERLAP].image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    VkExtent3D extent;
+    extent.height = _windowExtent.height;
+    extent.width = _windowExtent.width;
+    extent.depth = 1;
+
+    // execute a copy from the draw image into the swapchain
+    vkutil::copy_image_to_image(cmd, _drawImage.image, _remoteDrawFramebuffer[_frameNumber % FRAME_OVERLAP].image, extent);
+
+
+    // set swapchain image layout to Present so we can draw it
+    vkutil::transition_image(cmd, _remoteDrawFramebuffer[_frameNumber % FRAME_OVERLAP].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    //finalize the command buffer (we can no longer add commands, but it can now be executed)
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    //prepare the submission to the queue. 
+    //we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+    //we will signal the _renderSemaphore, to signal that rendering has finished
+
+    VkCommandBufferSubmitInfo cmdinfo = vkinit::command_buffer_submit_info(cmd);
+
+    VkSemaphoreSubmitInfo waitInfo = vkinit::semaphore_submit_info(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, get_current_frame()._swapchainSemaphore);
+    VkSemaphoreSubmitInfo signalInfo = vkinit::semaphore_submit_info(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, get_current_frame()._renderSemaphore);
+
+    VkSubmitInfo2 submit = vkinit::submit_info(&cmdinfo, &signalInfo, nullptr);
+
+    //submit command buffer to the queue and execute it.
+    // _renderFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit2(_graphicsQueue, 1, &submit, get_current_frame()._renderFence));
+
+    _frameNumber++;
 }
 
 void VulkanEngine::update_scene_to_remote()
@@ -1567,7 +1628,7 @@ void VulkanEngine::save_screenshot()
 
         bool screenshotSaved = false;
 
-        VkImage srcImage = _swapchainImages[_frameNumber % FRAME_OVERLAP];
+        VkImage srcImage = _remoteDrawFramebuffer[_frameNumber % FRAME_OVERLAP].image;
 
         VkExtent3D extent{};
         extent.width = _windowExtent.width;
