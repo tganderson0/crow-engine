@@ -8,6 +8,8 @@ endif()
 
 project(fastgltf VERSION 0.5.0 LANGUAGES C CXX)
 
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+
 option(FASTGLTF_DOWNLOAD_SIMDJSON "Downloads a copy of simdjson itself to satisfy the dependency" ON)
 option(FASTGLTF_USE_CUSTOM_SMALLVECTOR "Uses a custom SmallVector type optimised for small arrays" OFF)
 option(FASTGLTF_ENABLE_TESTS "Enables test targets for fastlgtf" OFF)

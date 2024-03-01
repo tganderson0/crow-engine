@@ -4,7 +4,7 @@
 #include <chrono>
 #include "vk_remote.h"
 
-#define RENDER_HOST false
+#define RENDER_HOST true
 
 
 void handle_host(NetworkHost& networker)
