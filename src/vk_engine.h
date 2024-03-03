@@ -146,8 +146,8 @@ class VulkanEngine {
 public:
 
     // TIMING THINGS
-    std::vector<std::chrono::steady_clock::time_point> render_times;
-    std::vector<std::chrono::steady_clock::time_point> encoding_times;
+    std::vector<long long> render_times;
+    std::vector<long long> encoding_times;
     /////////////////
 
     // REMOTE
@@ -256,13 +256,13 @@ public:
     void cleanup();
 
     // draw loop
-    void draw();
-    void draw_main(VkCommandBuffer cmd);
+    void draw(bool clear);
+    void draw_main(VkCommandBuffer cmd, bool clear);
     void draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
     void render_nodes();
 
-    void draw_geometry(VkCommandBuffer cmd);
+    void draw_geometry(VkCommandBuffer cmd, bool clear);
 
     // run main loop
     void run();
@@ -272,6 +272,8 @@ public:
     void draw_remote();
 
     void update_scene_to_remote();
+
+    void output_to_file();
 
     // upload a mesh into a pair of gpu buffers. If descriptor allocator is not
     // null, it will also create a descriptor that points to the vertex buffer

@@ -305,7 +305,7 @@ void VulkanEngine::init_background_pipelines()
 }
 
 
-void VulkanEngine::draw_main(VkCommandBuffer cmd)
+void VulkanEngine::draw_main(VkCommandBuffer cmd, bool clear)
 {
     ComputeEffect& effect = backgroundEffects[currentBackgroundEffect];
 
@@ -328,7 +328,7 @@ void VulkanEngine::draw_main(VkCommandBuffer cmd)
 
     vkCmdBeginRendering(cmd, &renderInfo);
     auto start = std::chrono::system_clock::now();
-    draw_geometry(cmd);
+    draw_geometry(cmd, clear);
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -356,7 +356,7 @@ void VulkanEngine::render_nodes()
 
 }
 
-void VulkanEngine::draw()
+void VulkanEngine::draw(bool clear)
 {
     //wait until the gpu has finished rendering the last frame. Timeout of 1 second
     VK_CHECK(vkWaitForFences(_device, 1, &get_current_frame()._renderFence, true, 1000000000));
@@ -390,7 +390,7 @@ void VulkanEngine::draw()
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    draw_main(cmd);
+    draw_main(cmd, clear);
 
     //transtion the draw image and the swapchain image into their correct transfer layouts
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -453,7 +453,7 @@ void VulkanEngine::draw()
 
 
     //increase the number of frames drawn
-    _frameNumber++;
+    //_frameNumber++;
 }
 
 
@@ -497,7 +497,7 @@ bool is_visible(const RenderObject& obj, const glm::mat4& viewproj) {
 }
 
 
-void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
+void VulkanEngine::draw_geometry(VkCommandBuffer cmd, bool clear)
 {
     std::vector<uint32_t> opaque_draws;
     opaque_draws.reserve(drawCommands.OpaqueSurfaces.size());
@@ -603,8 +603,11 @@ void VulkanEngine::draw_geometry(VkCommandBuffer cmd)
     }
 
     // we delete the draw commands now that we processed them
-    drawCommands.OpaqueSurfaces.clear();
-    drawCommands.TransparentSurfaces.clear();
+    if (clear)
+    {
+        drawCommands.OpaqueSurfaces.clear();
+        drawCommands.TransparentSurfaces.clear();
+    }
 }
 
 void VulkanEngine::run()
@@ -667,6 +670,11 @@ void VulkanEngine::run()
             ImGui::End();
         }
 
+        if (ImGui::Button("Save timing data"))
+        {
+            output_to_file();
+        }
+
         //if (ImGui::Begin("Debug")) {
         //    if (ImGui::Button("Screenshot"))
         //    {
@@ -681,12 +689,13 @@ void VulkanEngine::run()
 
         update_scene();
 
-        draw();
-
+        draw(true);
         //draw_remote();
 
         auto end = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+
+        render_times.push_back(elapsed.count() / 1000.f);
 
         stats.frametime = elapsed.count() / 1000.f;
     }
@@ -712,13 +721,13 @@ void VulkanEngine::update_scene()
 
     loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
     
-    for (int z = 0; z < 10; z++)
-    {
-        for (int x = 0; x < 10; x++)
-        {
-            loadedScenes["structure"]->Draw(glm::translate(glm::mat4(1.f), glm::vec3{ x * 40.f, 0.f, z * 100.f }), drawCommands);
-        }
-    }
+    //for (int z = 0; z < 10; z++)
+    //{
+    //    for (int x = 0; x < 10; x++)
+    //    {
+    //        loadedScenes["structure"]->Draw(glm::translate(glm::mat4(1.f), glm::vec3{ x * 40.f, 0.f, z * 100.f }), drawCommands);
+    //    }
+    //}
 
 }
 
@@ -749,7 +758,7 @@ void VulkanEngine::draw_remote()
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     vkutil::transition_image(cmd, _depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    draw_main(cmd);
+    draw_main(cmd, true);
 
     //transtion the draw image and the swapchain image into their correct transfer layouts
     vkutil::transition_image(cmd, _drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -806,7 +815,7 @@ void VulkanEngine::update_scene_to_remote()
     sceneData.viewproj = projection * view;
     sceneData.cameraPosition = glm::vec4(remoteCamera.position, 0.0);
 
-    loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
+    /*loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);*/
 }
 
 AllocatedBuffer VulkanEngine::create_buffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
@@ -1683,4 +1692,22 @@ void VulkanEngine::save_screenshot()
         //networkHost->img.resize(_jpegSize);
         //memcpy(networkHost->img.data(), _compressedImage, _jpegSize);
     }
+}
+
+void VulkanEngine::output_to_file()
+{
+    std::ofstream outFile;
+    outFile.open("renderTimes.txt");
+    for (auto time : render_times)
+    {
+        outFile << time << std::endl;
+    }
+    outFile.close();
+
+    //outFile.open("encodingTimes.txt");
+    //for (auto time : encoding_times)
+    //{
+    //    outFile << time << std::endl;
+    //}
+    //outFile.close();
 }
