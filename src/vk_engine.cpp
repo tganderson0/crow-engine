@@ -29,6 +29,7 @@
 #include <fastgltf/parser.hpp>
 #include <fastgltf/tools.hpp>
 #include <glm/gtx/transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <thread>
 #include <chrono>
@@ -657,6 +658,15 @@ void VulkanEngine::run()
             ImGui::End();
         }
 
+        if (ImGui::Begin("Remote Camera"))
+        {
+            ImGui::SliderFloat3("Camera Position", glm::value_ptr(remoteCamera.position), -700, 700);
+            ImGui::SliderFloat("Pitch", &remoteCamera.pitch, -4, 4);
+            ImGui::SliderFloat("Yaw", &remoteCamera.yaw, -4, 4);
+
+            ImGui::End();
+        }
+
         //if (ImGui::Begin("Debug")) {
         //    if (ImGui::Button("Screenshot"))
         //    {
@@ -704,7 +714,7 @@ void VulkanEngine::update_scene()
     
     for (int z = 0; z < 10; z++)
     {
-        for (int x = 0; x < 20; x++)
+        for (int x = 0; x < 10; x++)
         {
             loadedScenes["structure"]->Draw(glm::translate(glm::mat4(1.f), glm::vec3{ x * 40.f, 0.f, z * 100.f }), drawCommands);
         }
