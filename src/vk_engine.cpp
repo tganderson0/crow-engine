@@ -689,8 +689,8 @@ void VulkanEngine::run()
 
         update_scene();
 
-        draw(true);
-        //draw_remote();
+        draw(false);
+        draw_remote();
 
         auto end = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -1697,17 +1697,17 @@ void VulkanEngine::save_screenshot()
 void VulkanEngine::output_to_file()
 {
     std::ofstream outFile;
-    outFile.open("renderTimes.txt");
-    for (auto time : render_times)
+    outFile.open("encodingTimes.txt");
+    for (auto time : networkHost->encodingTimes)
     {
         outFile << time << std::endl;
     }
     outFile.close();
 
-    //outFile.open("encodingTimes.txt");
-    //for (auto time : encoding_times)
-    //{
-    //    outFile << time << std::endl;
-    //}
-    //outFile.close();
+    outFile.open("transferTimes.txt");
+    for (auto time : networkHost->transferTimes)
+    {
+        outFile << time << std::endl;
+    }
+    outFile.close();
 }

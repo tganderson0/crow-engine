@@ -35,13 +35,24 @@ void NetworkHost::start()
 			start_read = false;
 			unsigned char* _compressedImage = nullptr;
 			long unsigned int _jpegSize = 0;
+
+			std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 			tjCompress2(_jpegCompressor, raw_data, extent.width, rowPitch, extent.height, TJPF_RGBA, &_compressedImage, &_jpegSize, TJSAMP_422, 90, TJFLAG_FASTDCT);
+			std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+			encodingTimes.push_back(std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count() / 1000.f);
+
 			img.assign(_compressedImage, _compressedImage + _jpegSize);
 
 			std::array<int64_t, 2> msg_length = { img.size(), rowPitch };
 			boost::system::error_code ignored_error;
+
+			begin = std::chrono::steady_clock::now();
 			boost::asio::write(socket, boost::asio::buffer(msg_length), ignored_error);
 			boost::asio::write(socket, boost::asio::buffer(img), ignored_error);
+			end = std::chrono::steady_clock::now();
+			transferTimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count() / 1000000.f);
+
 
 			if (ignored_error == boost::asio::error::connection_aborted || ignored_error == boost::asio::error::connection_reset)
 			{

@@ -21,6 +21,8 @@ public:
 	unsigned char* raw_data;
 	VkExtent3D extent;
 	tjhandle _jpegCompressor;
+	std::vector<long long> encodingTimes;
+	std::vector<long long> transferTimes;
 
 private:
 	boost::asio::io_context io_context;
