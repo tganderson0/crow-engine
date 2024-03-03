@@ -452,6 +452,7 @@ void VulkanEngine::draw()
 
 
     //increase the number of frames drawn
+    _frameNumber++;
 }
 
 
@@ -672,7 +673,7 @@ void VulkanEngine::run()
 
         draw();
 
-        draw_remote();
+        //draw_remote();
 
         auto end = std::chrono::system_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -700,6 +701,15 @@ void VulkanEngine::update_scene()
     sceneData.cameraPosition = glm::vec4(mainCamera.position, 0.0);
 
     loadedScenes["structure"]->Draw(glm::mat4{ 1.f }, drawCommands);
+    
+    for (int z = 0; z < 10; z++)
+    {
+        for (int x = 0; x < 20; x++)
+        {
+            loadedScenes["structure"]->Draw(glm::translate(glm::mat4(1.f), glm::vec3{ x * 40.f, 0.f, z * 100.f }), drawCommands);
+        }
+    }
+
 }
 
 void VulkanEngine::draw_remote()
@@ -1315,7 +1325,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\old_rusty_car.glb" };
+    std::string structurePath = { "..\\..\\assets\\audi_r8.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());
