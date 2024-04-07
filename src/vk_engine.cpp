@@ -34,7 +34,7 @@
 #include <thread>
 #include <chrono>
 
-constexpr bool bUseValidationLayers = true;
+constexpr bool bUseValidationLayers = false;
 
 // we want to immediately abort when there is an error. In normal engines this
 // would give an error message to the user, or perform a dump of state.
@@ -87,7 +87,7 @@ void VulkanEngine::init()
     _isInitialized = true;
 
     mainCamera.velocity = glm::vec3(0.f);
-    mainCamera.position = glm::vec3(0, -00.f, -5.f);
+    mainCamera.position = glm::vec3(0, 1.f, 2.f);
 
     mainCamera.pitch = 0;
     mainCamera.yaw = 0;
@@ -1344,7 +1344,7 @@ void VulkanEngine::init_sync_structures()
 
 void VulkanEngine::init_renderables()
 {
-    std::string structurePath = { "..\\..\\assets\\audi_r8.glb" };
+    std::string structurePath = { "..\\..\\assets\\japanese_street_at_night.glb" };
     auto structureFile = loadGltf(this, structurePath);
 
     assert(structureFile.has_value());

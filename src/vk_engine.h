@@ -239,7 +239,7 @@ public:
     EngineStats stats;
 
     std::vector<ComputeEffect> backgroundEffects;
-    int currentBackgroundEffect{ 0 };
+    int currentBackgroundEffect{ 1 };
 
     VkPhysicalDeviceMemoryProperties memoryProperties;
 
